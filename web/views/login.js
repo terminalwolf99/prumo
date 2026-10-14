@@ -21,18 +21,47 @@ export function Login() {
 
   useEffect(() => { if (step === 'code') codeRef.current?.focus() }, [step])
 
-  // Test accounts: dev.js is gitignored and only exists on the developer's PC.
+  // Test accounts (test phase only, see test-accounts.js). On localhost the
+  // password comes from the gitignored dev.js; elsewhere it is typed once and
+  // remembered on that device, so it never sits in the public code.
   const [demo, setDemo] = useState(null)
+  const [testKey, setTestKey] = useState('')
+  const [unlocking, setUnlocking] = useState(false)
   useEffect(() => {
-    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return
-    import('../dev.js').then(setDemo).catch(() => {})
+    (async () => {
+      const { TEST_MODE, DEMO_ACCOUNTS } = await import('../test-accounts.js')
+      if (!TEST_MODE) return
+      let password = ''
+      if (['localhost', '127.0.0.1'].includes(location.hostname)) {
+        password = (await import('../dev.js').catch(() => ({}))).DEMO_PASSWORD ?? ''
+      }
+      if (!password) { try { password = localStorage.getItem('prumo:test-key') ?? '' } catch {} }
+      setDemo({ accounts: DEMO_ACCOUNTS, password })
+    })().catch(() => {})
   }, [])
 
   async function demoLogin(account) {
     setBusy(true); setError('')
-    const { error } = await sb.auth.signInWithPassword({ email: account, password: demo.DEMO_PASSWORD })
+    const { error } = await sb.auth.signInWithPassword({ email: account, password: demo.password })
     setBusy(false)
-    if (error) setError(friendly(error))
+    if (!error) return
+    if (/invalid login credentials/i.test(error.message)) {
+      try { localStorage.removeItem('prumo:test-key') } catch {}
+      setDemo({ ...demo, password: '' })
+      setError('Senha de teste incorreta.')
+    } else {
+      setError(friendly(error))
+    }
+  }
+
+  // A wrong key shows up on the first button press, which forgets it again.
+  function unlock(e) {
+    e.preventDefault()
+    const key = testKey.trim()
+    if (!key) return
+    try { localStorage.setItem('prumo:test-key', key) } catch {}
+    setDemo({ ...demo, password: key })
+    setTestKey('')
   }
 
   async function sendCode(e) {
@@ -100,11 +129,18 @@ export function Login() {
         </form>`}
       ${demo && html`<div class="demo-box">
         <p class="field-label">Contas de teste</p>
-        <p class="muted small">Só aparecem neste computador. Entram sem e-mail.</p>
-        <div class="demo-grid">
-          ${demo.DEMO_ACCOUNTS.map((a) => html`<button type="button" class="btn ghost sm" disabled=${busy}
-            onClick=${() => demoLogin(a.email)}>${a.label}</button>`)}
-        </div>
+        ${demo.password ? html`
+          <p class="muted small">Fase de testes: entram sem e-mail.</p>
+          <div class="demo-grid">
+            ${demo.accounts.map((a) => html`<button type="button" class="btn ghost sm" disabled=${busy}
+              onClick=${() => demoLogin(a.email)}>${a.label}</button>`)}
+          </div>` : unlocking ? html`
+          <form class="row" onSubmit=${unlock}>
+            <input type="password" autocomplete="off" value=${testKey} onInput=${(e) => setTestKey(e.target.value)}
+              placeholder="Senha de teste" aria-label="Senha de teste" />
+            <button class="btn ghost" type="submit" disabled=${!testKey.trim()}>Liberar</button>
+          </form>` : html`
+          <button type="button" class="link small" onClick=${() => setUnlocking(true)}>Tenho uma senha de teste</button>`}
       </div>`}
     </section>
   </main>`
