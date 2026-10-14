@@ -19,7 +19,8 @@ function pickRound(rounds, now) {
   return live[0] ?? rounds.at(-1) ?? null
 }
 
-export function Student({ me }) {
+// `bar` replaces the top bar in a staff preview; nothing is registered then.
+export function Student({ me, bar }) {
   const [rounds, setRounds] = useState(null)
   const [courses, setCourses] = useState([])
   const [mine, setMine] = useState([])
@@ -53,6 +54,10 @@ export function Student({ me }) {
   const courseById = useMemo(() => Object.fromEntries(courses.map((c) => [c.id, c])), [courses])
 
   async function apply(course) {
+    if (bar) {
+      toast('Prévia: nada foi registrado. Só estudantes se inscrevem de verdade.')
+      return
+    }
     try {
       const r = await rpc('apply', { p_course_id: course.id })
       setResult({ ...r, course })
@@ -62,9 +67,9 @@ export function Student({ me }) {
     load()
   }
 
-  if (rounds === null) return html`<${Shell} me=${me}><div class="skeleton"></div><//>`
+  if (rounds === null) return html`<${Shell} me=${me} bar=${bar}><div class="skeleton"></div><//>`
   if (!round) {
-    return html`<${Shell} me=${me}>
+    return html`<${Shell} me=${me} bar=${bar}>
       <${Empty} title="Nenhuma rodada de inscrições aberta ainda.">
         Quando a coordenação publicar as disciplinas, elas aparecem aqui.
       <//>
@@ -79,7 +84,7 @@ export function Student({ me }) {
   }
   const shown = area ? roundCourses.filter((c) => c.area === area) : roundCourses
 
-  return html`<${Shell} me=${me}>
+  return html`<${Shell} me=${me} bar=${bar}>
     ${rounds.length > 1 && html`<nav class="round-tabs" aria-label="Rodadas">
       ${rounds.map((r) => html`<button key=${r.id} class="pill ${r.id === round.id ? 'on' : ''}"
         onClick=${() => setRoundId(r.id)}>${r.title}</button>`)}
@@ -110,8 +115,8 @@ export function Student({ me }) {
   <//>`
 }
 
-function Shell({ me, children }) {
-  return html`<${Topbar} me=${me} /><main class="page">${children}</main>`
+function Shell({ me, bar, children }) {
+  return html`${bar ?? html`<${Topbar} me=${me} />`}<main class="page">${children}</main>`
 }
 
 function shortArea(a) {

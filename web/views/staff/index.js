@@ -1,6 +1,7 @@
 import { html, useCallback, useEffect, useState } from '../../lib/deps.js'
 import { sb, watch } from '../../lib/db.js'
 import { Topbar } from '../../lib/ui.js'
+import { Student } from '../student.js'
 import { DropsTab } from './drops.js'
 import { PeopleTab } from './people.js'
 import { RoundsTab } from './rounds.js'
@@ -38,6 +39,13 @@ export function Staff({ me }) {
   useEffect(() => { countDrops() }, [countDrops])
   useEffect(() => watch('staff-drops', ['enrollments'], countDrops, 800), [countDrops])
 
+  // "Ver como estudante": the real student screen, for a chosen year, read-only.
+  const [asGrade, setAsGrade] = useState(0)
+  if (asGrade) {
+    return html`<${Student} me=${{ ...me, role: 'student', grade: asGrade, class_name: null }}
+      bar=${html`<${PreviewBar} grade=${asGrade} setGrade=${setAsGrade} onExit=${() => setAsGrade(0)} />`} />`
+  }
+
   return html`<${Topbar} me=${me}>
       <nav class="tabs" aria-label="Painel">
         ${tabs.map((t) => html`<a key=${t.id} href=${`#/${t.id}`} class="tab ${current === t.id ? 'on' : ''}"
@@ -45,6 +53,7 @@ export function Staff({ me }) {
           ${t.label}${t.id === 'desistencias' && drops > 0 && html`<span class="badge">${drops}</span>`}
         </a>`)}
       </nav>
+      <button class="btn ghost sm view-as" onClick=${() => setAsGrade(2)}>Ver como estudante</button>
     <//>
     <main class="page wide">
       ${current === 'rodadas' && html`<${RoundsTab} me=${me} />`}
@@ -53,4 +62,17 @@ export function Staff({ me }) {
       ${current === 'equipe' && html`<${PeopleTab} me=${me} kind="team" />`}
       ${current === 'ajustes' && html`<${SettingsTab} me=${me} go=${go} />`}
     </main>`
+}
+
+function PreviewBar({ grade, setGrade, onExit }) {
+  return html`<header class="topbar preview-bar">
+    <span class="preview-tag">Prévia</span>
+    <label class="preview-text">Vendo como estudante do
+      <select value=${grade} onChange=${(e) => setGrade(Number(e.target.value))}>
+        <option value="1">1º ano</option><option value="2">2º ano</option><option value="3">3º ano</option>
+      </select>
+    </label>
+    <span class="preview-note">nada é registrado</span>
+    <button class="btn primary sm" onClick=${onExit}>Voltar ao painel</button>
+  </header>`
 }

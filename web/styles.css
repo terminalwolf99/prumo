@@ -181,7 +181,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .who { margin-left: auto; }
 }
 
-.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.topbar-mid { display: flex; align-items: center; gap: 10px; }
+.view-as { flex: none; white-space: nowrap; }
+.preview-bar { background: var(--sun-soft); border-bottom: 1.5px solid var(--sun-fill); flex-wrap: wrap; row-gap: 8px; }
+.preview-tag { background: var(--sun-fill); color: #2b1d00; font: 700 0.72rem var(--ui); letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; }
+.preview-text { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.preview-text select { width: auto; min-height: 36px; padding: 4px 10px; }
+.preview-note { color: var(--muted); font-size: 0.85rem; flex: 1; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .tab {
   padding: 8px 14px;
   border-radius: 999px;
