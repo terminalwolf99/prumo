@@ -49,11 +49,13 @@ rejects everyone else before any e-mail is sent.
      blocks, raise `email_sent`, and run `supabase config push`.
      Until then Supabase sends sign-in links (only to the project's team), and
      the app accepts those too.
-3. **Hosting.** Any static host serving `web/`. Then add its URL to `site_url`
-   and `additional_redirect_urls` in `config.toml`, set the `APP_URL`
-   function secret, and push.
-4. **Keep-alive.** Free Supabase projects pause after 7 days without use. Ping
-   the API daily (e.g. a scheduled GitHub Action) or upgrade.
+3. **Hosting: GitHub Pages.** `.github/workflows/pages.yml` publishes `web/`
+   on every push to `main` (repo Settings → Pages → Source: GitHub Actions).
+   Then add the site URL to `site_url` and `additional_redirect_urls` in
+   `config.toml`, set the `APP_URL` function secret, and `supabase config push`.
+4. **Keep-alive.** `.github/workflows/keepalive.yml` pings the database daily
+   so the free project doesn't pause. GitHub turns scheduled workflows off
+   after 60 days without commits; re-enable it from the Actions tab.
 5. **Slip design.** Upload the final PDF in Ajustes → Comprovante. Field
    positions live in `settings.slip_layout` (see `functions/_shared/slip.ts`).
 

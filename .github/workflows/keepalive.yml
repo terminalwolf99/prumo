@@ -1,0 +1,19 @@
+# Free Supabase projects pause after 7 days without requests; one call a day
+# keeps Prumo awake. GitHub turns scheduled workflows off after 60 days with
+# no commits in a public repo; "Run workflow" (or any commit) turns it back on.
+name: Manter banco acordado
+
+on:
+  schedule:
+    - cron: '17 11 * * *' # every day, 08:17 Brasília
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the database for the time
+        run: |
+          curl -fsS -X POST "https://qvusibdisuvwsfflyazq.supabase.co/rest/v1/rpc/server_time" \
+            -H "apikey: sb_publishable_uGD4wK4WCPFoBtPuN-Vmvw_Xglx97Qe" \
+            -H "Content-Type: application/json" -d '{}'
