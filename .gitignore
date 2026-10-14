@@ -6,3 +6,7 @@ supabase/.branches/
 supabase/functions/.env
 node_modules/
 .claude/
+
+# local test accounts (hold a password)
+web/dev.js
+supabase/dev/demo.sql

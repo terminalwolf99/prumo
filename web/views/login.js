@@ -21,6 +21,20 @@ export function Login() {
 
   useEffect(() => { if (step === 'code') codeRef.current?.focus() }, [step])
 
+  // Test accounts: dev.js is gitignored and only exists on the developer's PC.
+  const [demo, setDemo] = useState(null)
+  useEffect(() => {
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return
+    import('../dev.js').then(setDemo).catch(() => {})
+  }, [])
+
+  async function demoLogin(account) {
+    setBusy(true); setError('')
+    const { error } = await sb.auth.signInWithPassword({ email: account, password: demo.DEMO_PASSWORD })
+    setBusy(false)
+    if (error) setError(friendly(error))
+  }
+
   async function sendCode(e) {
     e?.preventDefault()
     const clean = email.trim().toLowerCase()
@@ -86,6 +100,14 @@ export function Login() {
             </button>
           </div>
         </form>`}
+      ${demo && html`<div class="demo-box">
+        <p class="field-label">Contas de teste</p>
+        <p class="muted small">Só aparecem neste computador. Entram sem e-mail.</p>
+        <div class="demo-grid">
+          ${demo.DEMO_ACCOUNTS.map((a) => html`<button type="button" class="btn ghost sm" disabled=${busy}
+            onClick=${() => demoLogin(a.email)}>${a.label}</button>`)}
+        </div>
+      </div>`}
     </section>
   </main>`
 }

@@ -57,6 +57,16 @@ rejects everyone else before any e-mail is sent.
 5. **Slip design.** Upload the final PDF in Ajustes → Comprovante. Field
    positions live in `settings.slip_layout` (see `functions/_shared/slip.ts`).
 
+## Testing without e-mail
+
+`web/dev.js` and `supabase/dev/demo.sql` (both gitignored) hold demo accounts.
+On localhost the login screen shows "Contas de teste" buttons that sign in
+without a code. Remove all demo data before real use:
+
+```bash
+supabase db query --linked -f supabase/dev/reset-demo.sql
+```
+
 ## Local preview
 
 ```bash
