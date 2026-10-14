@@ -84,7 +84,7 @@ export function SettingsTab({ me }) {
       <h2 class="h3">Domínios institucionais</h2>
       <p class="muted small">Cada papel só pode ser cadastrado com e-mail do seu domínio. A administração é exceção.</p>
       <${DomainList} label="Estudantes" field="student_domains" example="aluno.autonomia.com.br" settings=${s} admin=${admin} save=${saveSettings} />
-      <${DomainList} label="Professores" field="staff_domains" example="autonomia.com" settings=${s} admin=${admin} save=${saveSettings} />
+      <${DomainList} label="Professores" field="staff_domains" example="autonomia.com.br" settings=${s} admin=${admin} save=${saveSettings} />
     </section>
 
     <section class="card">
