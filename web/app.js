@@ -11,7 +11,7 @@ function NotAllowed({ email }) {
     <div class="card narrow">
       <${Wordmark} />
       <h1 class="h2">Acesso não liberado</h1>
-      <p><b>${email}</b> não está (ou não está mais) na lista do Projeto Autonomia.</p>
+      <p><b>${email}</b> não está cadastrado no Prumo, ou o acesso foi desativado.</p>
       <p class="muted">Se isso for um engano, fale com a coordenação.</p>
       <button class="btn primary" onClick=${() => sb.auth.signOut()}>Entrar com outro e-mail</button>
     </div>

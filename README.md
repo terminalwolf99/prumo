@@ -1,6 +1,6 @@
-# Projeto Autonomia · inscrições
+# Prumo · Escola Autonomia
 
-Web app for Ensino Médio students to sign up for advanced subjects
+Prumo is the web app Escola Autonomia (Florianópolis/SC) uses for Ensino Médio students to sign up for advanced subjects
 (aprofundamentos): limited spots, multi-disciplinary, e-mail confirmation,
 first come first served. All times are Horário de Brasília.
 

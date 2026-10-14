@@ -143,14 +143,24 @@ export function Field({ label, hint, children, class: cls = '' }) {
   </label>`
 }
 
-export function Wordmark({ small }) {
-  return html`<span class="wordmark ${small ? 'small' : ''}">autonomia<span class="dot">.</span></span>`
+// Prumo = plumb line: the bob hangs where the dot would be.
+export function Wordmark({ small, large }) {
+  return html`<span class="wordmark ${small ? 'small' : ''} ${large ? 'large' : ''}" aria-label="Prumo">
+    <svg class="bob" viewBox="4 0 16 24" aria-hidden="true"><path d="M12 1.5v6" /><path d="M7 9.5h10L12 22z" /></svg>prumo
+  </span>`
+}
+
+export function SchoolLogo({ small, class: cls = '' }) {
+  return html`<img class="school-logo ${cls}" alt="Escola Autonomia"
+    src=${small ? 'assets/escola-autonomia-sm.png' : 'assets/escola-autonomia.png'}
+    width=${small ? 360 : 700} height=${small ? 104 : 202} />`
 }
 
 export function Topbar({ me, children }) {
   const roleLabel = { admin: 'Administração', teacher: 'Professor(a)', student: me.class_name || (me.grade ? `${me.grade}º ano` : 'Estudante') }[me.role]
   return html`<header class="topbar">
     <a class="brand" href="#/"><${Wordmark} small /></a>
+    <${SchoolLogo} small class="topbar-school" />
     <div class="topbar-mid">${children}</div>
     <div class="who">
       <div class="who-text"><b>${me.full_name.split(' ')[0]}</b><span>${roleLabel}</span></div>

@@ -244,7 +244,7 @@ otp_expiry = 600
 # user = "env(AUTH_SMTP_USER)"
 # pass = "env(AUTH_SMTP_PASS)"
 # admin_email = "env(AUTH_SMTP_USER)"
-# sender_name = "Projeto Autonomia"
+# sender_name = "Prumo · Escola Autonomia"
 
 # Sign-in sends a 6-digit code instead of a link (links open in the wrong
 # browser on phones). New users get "confirmation", returning ones "magic_link".
@@ -252,11 +252,11 @@ otp_expiry = 600
 # uncomment these together with [auth.email.smtp]. Until then Supabase sends a
 # link, which the app also accepts.
 # [auth.email.template.confirmation]
-# subject = "Seu código de acesso · Projeto Autonomia"
+# subject = "Seu código de acesso ao Prumo"
 # content_path = "./supabase/templates/codigo.html"
 #
 # [auth.email.template.magic_link]
-# subject = "Seu código de acesso · Projeto Autonomia"
+# subject = "Seu código de acesso ao Prumo"
 # content_path = "./supabase/templates/codigo.html"
 
 # Uncomment to customize email template

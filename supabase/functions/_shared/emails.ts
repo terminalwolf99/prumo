@@ -28,9 +28,9 @@ export function compose(kind: Kind, d: SlipData, appUrl: string) {
       ]
       break
     case 'promoted':
-      subject = `Abriu uma vaga e ela é sua: ${course}`
+      subject = `Vaga confirmada (lista de espera): ${course}`
       lines = [
-        `Uma vaga abriu em <b>${esc(course)}</b> e você era a próxima pessoa da lista de espera, então ela é sua.`,
+        `Abriu uma vaga em <b>${esc(course)}</b> e ela foi atribuída a você, pela ordem da lista de espera.`,
         `Sua inscrição original foi registrada em ${when}. Código <b>${code}</b>.`,
         'O comprovante está em anexo, em PDF.',
       ]
@@ -71,13 +71,13 @@ export function compose(kind: Kind, d: SlipData, appUrl: string) {
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f4efe6;font-family:Arial,Helvetica,sans-serif;color:#17212a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden">
-<tr><td style="background:#05545f;padding:22px 28px;color:#ffffff;font-size:12px;letter-spacing:.12em;font-weight:bold">${esc(d.school_name.toUpperCase())}</td></tr>
+<tr><td style="background:#003582;padding:22px 28px;color:#ffffff;font-size:12px;letter-spacing:.12em;font-weight:bold">PRUMO · ${esc(d.school_name.toUpperCase())}</td></tr>
 <tr><td style="padding:28px 28px 8px;font-size:16px;line-height:1.55">
 <p style="margin:0 0 14px">Olá, ${esc(first)}!</p>
 ${lines.map((l) => `<p style="margin:0 0 14px">${l}</p>`).join('\n')}
 </td></tr>
-<tr><td style="padding:4px 28px 28px"><a href="${esc(appUrl)}" style="display:inline-block;background:#05545f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:bold;font-size:15px">Ver minhas inscrições</a></td></tr>
-<tr><td style="padding:16px 28px;background:#faf7f1;color:#5f6f7a;font-size:12px">Mensagem automática do ${esc(d.school_name)} · Florianópolis/SC</td></tr>
+<tr><td style="padding:4px 28px 28px"><a href="${esc(appUrl)}" style="display:inline-block;background:#003582;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:bold;font-size:15px">Ver minhas inscrições</a></td></tr>
+<tr><td style="padding:16px 28px;background:#faf7f1;color:#5f6f7a;font-size:12px">Mensagem automática do Prumo · ${esc(d.school_name)} · Florianópolis/SC</td></tr>
 </table></td></tr></table></body></html>`
 
   const text = `Olá, ${first}!\n\n${lines.map((l) => l.replace(/<[^>]+>/g, '')).join('\n\n')}\n\n${appUrl}\n`

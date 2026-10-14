@@ -12,7 +12,7 @@ export const SEATED = ['confirmed', 'drop_requested']
 
 // Server error codes (raised in SQL) → what people read.
 const MESSAGES = {
-  not_registered: 'Este e-mail não está na lista do Projeto Autonomia. Fale com a coordenação.',
+  not_registered: 'Este e-mail não está cadastrado no Prumo. Fale com a coordenação.',
   only_students: 'Só estudantes podem se inscrever.',
   course_not_found: 'Essa disciplina não está disponível.',
   not_open_yet: 'As inscrições ainda não abriram.',

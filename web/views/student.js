@@ -136,7 +136,7 @@ function Hero({ round, phase, now, used }) {
     </div>
     <div class="hero-side">
       ${phase === 'soon' && html`<${Countdown} to=${opens} now=${now} />
-        <p class="hero-tip">Pode deixar esta página aberta: os botões liberam sozinhos na hora exata, pelo relógio do servidor.</p>`}
+        <p class="hero-tip">A inscrição libera automaticamente no horário de abertura, pelo relógio do servidor.</p>`}
       ${closingSoon && html`<${Countdown} to=${closes} now=${now} /><p class="hero-tip">para o fim das inscrições</p>`}
       <div class="choices" aria-label="Suas escolhas">
         <span class="choices-num">${used}<small>/${round.max_choices}</small></span>
@@ -211,8 +211,8 @@ function ApplyButton({ full, onApply }) {
     try { await onApply() } finally { setBusy(false); setArmedAt(0) }
   }
   const label = busy ? 'Registrando…'
-    : armedAt ? 'Toque de novo para confirmar'
-    : full ? 'Entrar na lista de espera' : 'Garantir minha vaga'
+    : armedAt ? (full ? 'Confirmar lista de espera' : 'Confirmar inscrição')
+    : full ? 'Entrar na lista de espera' : 'Inscrever-se'
   return html`<button class="btn apply ${full ? 'waitlist' : 'go'} ${armedAt ? 'armed' : ''}"
       onClick=${click} disabled=${busy} aria-live="polite">
     ${busy && html`<span class="spin" aria-hidden="true"></span>`}<span>${label}</span>
@@ -221,7 +221,7 @@ function ApplyButton({ full, onApply }) {
 
 function ResultModal({ result, me, onClose }) {
   const ok = result?.status === 'confirmed'
-  return html`<${Modal} open=${!!result} onClose=${onClose} title=${ok ? 'Vaga garantida' : 'Você está na lista de espera'}>
+  return html`<${Modal} open=${!!result} onClose=${onClose} title=${ok ? 'Inscrição confirmada' : 'Inscrição na lista de espera'}>
     ${result && html`<div class="result ${ok ? 'ok' : 'wait'}">
       <div class="result-mark" aria-hidden="true">${ok ? '✓' : result.position}</div>
       <h3 class="result-course">${result.course.title}</h3>
@@ -230,7 +230,7 @@ function ResultModal({ result, me, onClose }) {
         <div><dt>Registrada em</dt><dd>${fmtDate(result.applied_at)} · <span class="mono">${fmtMs(result.applied_at)}</span></dd></div>
         <div><dt>Código</dt><dd class="mono">${formatCode(result.code)}</dd></div>
       </dl>
-      <p class="muted small">Horário de Brasília. ${ok ? html`O comprovante em PDF está indo para <b>${me.email}</b>.` : ''}</p>
+      <p class="muted small">Horário de Brasília. ${ok ? html`O comprovante em PDF foi enviado para <b>${me.email}</b>.` : ''}</p>
       <div class="row end">
         ${ok && html`<${SlipButton} id=${result.enrollment_id} kind="ghost" />`}
         <button class="btn primary" onClick=${onClose}>Fechar</button>

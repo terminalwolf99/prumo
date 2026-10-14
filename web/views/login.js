@@ -1,6 +1,6 @@
 import { html, useEffect, useRef, useState } from '../lib/deps.js'
 import { friendly, sb } from '../lib/db.js'
-import { Btn, Field, Wordmark } from '../lib/ui.js'
+import { Btn, Field, SchoolLogo, Wordmark } from '../lib/ui.js'
 
 const RESEND_AFTER = 60
 
@@ -48,22 +48,20 @@ export function Login() {
 
   return html`<main class="login">
     <section class="login-hero">
-      <${Wordmark} />
-      <h1>Escolha seus aprofundamentos.</h1>
-      <p class="lede">Vagas limitadas, por ordem de chegada. Quem confirma primeiro garante a vaga.</p>
-      <ol class="steps">
-        <li><b>Entre</b> com seu e-mail institucional.</li>
-        <li><b>Na hora da abertura</b>, escolha suas disciplinas.</li>
-        <li><b>Receba o comprovante</b> em PDF no seu e-mail.</li>
-      </ol>
-      <p class="tz-note">Todos os horários são de Brasília.</p>
+      <${SchoolLogo} class="login-school" />
+      <div class="login-platform">
+        <${Wordmark} large />
+        <p class="lede">Inscrições nos aprofundamentos do Ensino Médio.</p>
+        <p class="muted">As vagas de cada disciplina são limitadas e preenchidas por ordem de inscrição.
+          O comprovante chega por e-mail, em PDF. Horários de Brasília.</p>
+      </div>
     </section>
 
     <section class="login-card card">
       ${step === 'email' ? html`
         <form onSubmit=${sendCode}>
           <h2 class="h2">Entrar</h2>
-          <p class="muted">Vamos mandar um código de 6 dígitos para o seu e-mail. Não precisa de senha.</p>
+          <p class="muted">Você recebe um código de 6 dígitos no seu e-mail institucional.</p>
           <${Field} label="E-mail institucional">
             <input type="email" autocomplete="email" inputmode="email" required autofocus
               value=${email} onInput=${(e) => setEmail(e.target.value)} placeholder="seu.email@escola" />

@@ -17,7 +17,7 @@ type Layout = { fields?: Partial<Record<FieldKey, FieldStyle>> }
 
 const INK = rgb(0.09, 0.13, 0.16)
 const MUTED = rgb(0.38, 0.44, 0.48)
-const SEA = rgb(0.02, 0.33, 0.38)
+const BRAND = rgb(0, 0.208, 0.51) // school navy #003582
 const SAND = rgb(0.96, 0.93, 0.87)
 
 function hex(c?: string) {
@@ -95,10 +95,10 @@ async function builtIn(d: SlipData) {
   const text = (t: string, x: number, y: number, size: number, font = regular, color = INK) =>
     page.drawText(safe(font, t), { x, y, size, font, color })
 
-  page.drawRectangle({ x: 0, y: H - 150, width: W, height: 150, color: SEA })
+  page.drawRectangle({ x: 0, y: H - 150, width: W, height: 150, color: BRAND })
   text(safe(bold, d.school_name.toUpperCase()), M, H - 70, 11, bold, rgb(1, 1, 1))
   text('Comprovante de inscrição', M, H - 104, 26, bold, rgb(1, 1, 1))
-  text(d.round_title, M, H - 128, 12, regular, rgb(0.82, 0.92, 0.93))
+  text(d.round_title, M, H - 128, 12, regular, rgb(0.8, 0.86, 0.95))
 
   let y = H - 210
   text('ESTUDANTE', M, y, 9, bold, MUTED)
@@ -110,7 +110,7 @@ async function builtIn(d: SlipData) {
   page.drawRectangle({ x: M - 16, y: y - 132, width: W - 2 * M + 32, height: 160, color: SAND })
   text('DISCIPLINA', M, y, 9, bold, MUTED)
   y -= 30
-  page.drawText(safe(bold, v.course), { x: M, y, size: fit(bold, safe(bold, v.course), 22, W - 2 * M, 12), font: bold, color: SEA })
+  page.drawText(safe(bold, v.course), { x: M, y, size: fit(bold, safe(bold, v.course), 22, W - 2 * M, 12), font: bold, color: BRAND })
   const rows: [string, string | null][] = [
     ['Área', d.course_area], ['Professor(a)', d.teacher_names], ['Horário', d.schedule], ['Local', d.location],
   ]
@@ -137,7 +137,7 @@ async function builtIn(d: SlipData) {
 
   page.drawLine({ start: { x: M, y: 90 }, end: { x: W - M, y: 90 }, thickness: 0.6, color: MUTED })
   text('Vaga confirmada por ordem de chegada. Guarde este comprovante.', M, 70, 10, regular, MUTED)
-  text(`${d.school_name} · Florianópolis/SC`, M, 54, 10, regular, MUTED)
+  text(`Prumo · ${d.school_name} · Florianópolis/SC`, M, 54, 10, regular, MUTED)
   return doc
 }
 
