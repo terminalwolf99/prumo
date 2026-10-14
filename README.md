@@ -37,7 +37,8 @@ rejects everyone else before any e-mail is sent.
 
 ## Still to do before real use
 
-1. **Institutional domain.** Panel → Ajustes → Domínios institucionais.
+1. **Institutional domains (done).** Students `@aluno.autonomia.com.br`,
+   teachers `@autonomia.com.br`; editable in Ajustes → Domínios institucionais.
 2. **Sender.** Supabase blocks SMTP ports 25/587 for functions, so use 465.
    - Gmail: turn on 2-step verification, create an app password.
    - Fill `supabase/functions/.env` (gitignored) and run
