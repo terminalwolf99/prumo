@@ -13,7 +13,6 @@ export function SettingsTab({ me }) {
   const admin = me.role === 'admin'
   const [s, setS] = useState(null)
   const [name, setName] = useState('')
-  const [domain, setDomain] = useState('')
   const [busy, setBusy] = useState('')
   const [template, setTemplate] = useState(null)
   const [mail, setMail] = useState([])
@@ -38,19 +37,6 @@ export function SettingsTab({ me }) {
       toast(done, 'ok')
     } catch (e) { toast(friendly(e), 'error') }
     load()
-  }
-
-  function addDomain(e) {
-    e.preventDefault()
-    const d = domain.trim().toLowerCase().replace(/^@/, '')
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) { toast('Domínio inválido. Ex.: escola.sc.gov.br', 'error'); return }
-    setDomain('')
-    saveSettings({ allowed_domains: [...new Set([...s.allowed_domains, d])] }, `@${d} adicionado.`)
-  }
-
-  async function removeDomain(d) {
-    const r = await ask({ title: `Remover @${d}?`, body: 'Quem já está na lista continua. Só novos cadastros passam a ser recusados.', confirm: 'Remover', danger: true })
-    if (r.ok) saveSettings({ allowed_domains: s.allowed_domains.filter((x) => x !== d) }, `@${d} removido.`)
   }
 
   async function upload(e) {
@@ -96,14 +82,9 @@ export function SettingsTab({ me }) {
 
     <section class="card">
       <h2 class="h3">Domínios institucionais</h2>
-      <p class="muted small">Só e-mails destes domínios podem ser cadastrados. A administração é exceção (pode usar Gmail).</p>
-      ${s.allowed_domains.length === 0 && html`<p class="warn">Nenhum domínio definido: por enquanto, qualquer e-mail pode ser cadastrado.</p>`}
-      <div class="chips">${s.allowed_domains.map((d) => html`<span class="chip on-chip" key=${d}>@${d}
-        ${admin && html`<button class="chip-x" aria-label=${`Remover ${d}`} onClick=${() => removeDomain(d)}>✕</button>`}</span>`)}</div>
-      ${admin && html`<form class="row wrap" onSubmit=${addDomain}>
-        <input value=${domain} onInput=${(e) => setDomain(e.target.value)} placeholder="escola.sc.gov.br" aria-label="Novo domínio" />
-        <button class="btn ghost" disabled=${!domain.trim()}>Adicionar domínio</button>
-      </form>`}
+      <p class="muted small">Cada papel só pode ser cadastrado com e-mail do seu domínio. A administração é exceção.</p>
+      <${DomainList} label="Estudantes" field="student_domains" example="aluno.autonomia.com.br" settings=${s} admin=${admin} save=${saveSettings} />
+      <${DomainList} label="Professores" field="staff_domains" example="autonomia.com" settings=${s} admin=${admin} save=${saveSettings} />
     </section>
 
     <section class="card">
@@ -136,5 +117,34 @@ export function SettingsTab({ me }) {
         </tr>`)}</tbody>
       </table></div>`}
     </section>
+  </div>`
+}
+
+function DomainList({ label, field, example, settings, admin, save }) {
+  const [value, setValue] = useState('')
+  const list = settings[field]
+
+  function add(e) {
+    e.preventDefault()
+    const d = value.trim().toLowerCase().replace(/^.*@/, '')
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) { toast(`Domínio inválido. Ex.: ${example}`, 'error'); return }
+    setValue('')
+    save({ [field]: [...new Set([...list, d])] }, `@${d} adicionado.`)
+  }
+
+  async function remove(d) {
+    const r = await ask({ title: `Remover @${d}?`, body: 'Quem já está cadastrado continua. Só novos cadastros passam a ser recusados.', confirm: 'Remover', danger: true })
+    if (r.ok) save({ [field]: list.filter((x) => x !== d) }, `@${d} removido.`)
+  }
+
+  return html`<div class="domain-list">
+    <p class="field-label">${label}</p>
+    ${list.length === 0 && html`<p class="warn">Nenhum domínio: qualquer e-mail é aceito para ${label.toLowerCase()}.</p>`}
+    <div class="chips">${list.map((d) => html`<span class="chip on-chip" key=${d}>@${d}
+      ${admin && html`<button class="chip-x" aria-label=${`Remover ${d}`} onClick=${() => remove(d)}>✕</button>`}</span>`)}</div>
+    ${admin && html`<form class="row wrap" onSubmit=${add}>
+      <input value=${value} onInput=${(e) => setValue(e.target.value)} placeholder=${example} aria-label=${`Novo domínio para ${label.toLowerCase()}`} />
+      <button class="btn ghost" disabled=${!value.trim()}>Adicionar</button>
+    </form>`}
   </div>`
 }

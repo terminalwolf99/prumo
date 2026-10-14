@@ -648,6 +648,8 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--brand); 
 .settings { display: grid; gap: 18px; max-width: 860px; }
 .settings > .card { padding: 20px; }
 .settings .h3 { margin-bottom: 8px; }
+.domain-list { margin-top: 16px; }
+.domain-list .chips { margin: 6px 0 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

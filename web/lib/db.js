@@ -26,7 +26,6 @@ const MESSAGES = {
   reason_required: 'Conte brevemente o motivo.',
   enrollment_not_found: 'Inscrição não encontrada.',
   forbidden: 'Você não tem permissão para isso.',
-  domain_not_allowed: 'Esse e-mail não é do domínio institucional da escola.',
   course_has_enrollments: 'Essa disciplina já tem inscrições e não pode mudar de rodada.',
   not_a_pdf: 'O arquivo precisa ser um PDF.',
   too_large: 'O PDF passa de 5 MB.',
@@ -35,6 +34,12 @@ const MESSAGES = {
 
 export function friendly(error) {
   const raw = error?.message || String(error ?? '')
+  // "student_domain_required|aluno.autonomia.com.br" → names the domain(s) to use
+  const dom = /(student|staff)_domain_required\|([^\s"]+)/.exec(raw)
+  if (dom) {
+    const list = dom[2].split(',').map((d) => `@${d}`).join(' ou ')
+    return dom[1] === 'student' ? `Estudantes precisam de um e-mail ${list}.` : `Professores precisam de um e-mail ${list}.`
+  }
   for (const [code, text] of Object.entries(MESSAGES)) if (raw.includes(code)) return text
   if (/rate limit|too many|429|security purposes/i.test(raw)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.'
   if (/expired|invalid.*(otp|token)|token.*(expired|invalid)/i.test(raw)) return 'Código inválido ou expirado. Confira ou peça um novo.'

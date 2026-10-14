@@ -66,8 +66,6 @@ export function Login() {
       <div class="login-platform">
         <${Wordmark} large />
         <p class="lede">Inscrições nos aprofundamentos do Ensino Médio.</p>
-        <p class="muted">As vagas de cada disciplina são limitadas e preenchidas por ordem de inscrição.
-          O comprovante chega por e-mail, em PDF. Horários de Brasília.</p>
       </div>
     </section>
 
@@ -78,7 +76,7 @@ export function Login() {
           <p class="muted">Você recebe um código de 6 dígitos no seu e-mail institucional.</p>
           <${Field} label="E-mail institucional">
             <input type="email" autocomplete="email" inputmode="email" required autofocus
-              value=${email} onInput=${(e) => setEmail(e.target.value)} placeholder="seu.email@escola" />
+              value=${email} onInput=${(e) => setEmail(e.target.value)} placeholder="nome.sobrenome@aluno.autonomia.com.br" />
           <//>
           ${error && html`<p class="form-error" role="alert">${error}</p>`}
           <${Btn} busy=${busy} type="submit" class="block">Enviar código<//>
