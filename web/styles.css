@@ -719,3 +719,9 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--brand); 
 .login-links .link { padding: 0; }
 .privacy p, .privacy li { line-height: 1.6; }
 .privacy ul { padding-left: 1.2em; margin: 0 0 12px; }
+
+/* narrow screens: tabs keep the full row, the preview button drops below */
+@media (max-width: 720px) {
+  .topbar-mid { flex-wrap: wrap; row-gap: 6px; }
+  .topbar-mid .tabs { flex-basis: 100%; }
+}
