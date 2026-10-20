@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       end_note: null, waitlist_position: null, full_name: 'Maria Eduarda Albuquerque dos Santos',
       email: '', class_name: '2º B', grade: 2, course_title: 'Astronomia e Física Moderna',
       course_area: 'Ciências da Natureza', schedule: 'Terças, 13h30–15h10', location: 'Laboratório 2',
-      teacher_names: 'Prof. Exemplo', round_title: 'Inscrições de exemplo',
+      teacher_names: 'Prof. Exemplo', round_title: 'Inscrições de exemplo', is_test: false,
       school_name: s.school_name, slip_layout: s.slip_layout,
     }
   } else {
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     if (!['confirmed', 'drop_requested'].includes(data.status)) return json({ error: 'no_seat' }, 409)
   }
 
-  const pdf = await renderSlip(data, await loadTemplate())
+  const pdf = await renderSlip(data, await loadTemplate(), Deno.env.get('APP_URL') ?? 'https://terminalwolf99.github.io/prumo/')
   return new Response(pdf, {
     headers: {
       ...cors,

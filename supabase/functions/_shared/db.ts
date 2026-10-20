@@ -21,6 +21,7 @@ export type SlipData = {
   location: string | null
   teacher_names: string | null
   round_title: string
+  is_test: boolean
   school_name: string
   slip_layout: Record<string, unknown>
 }
@@ -31,7 +32,7 @@ export async function loadEnrollment(id: string): Promise<SlipData | null> {
            case when e.status = 'waitlisted' then private.waitlist_position(e.id) end as waitlist_position,
            p.full_name, p.email, p.class_name, p.grade,
            c.title as course_title, c.area as course_area, c.schedule, c.location, c.teacher_names,
-           r.title as round_title,
+           r.title as round_title, r.is_test,
            s.school_name, s.slip_layout
       from public.enrollments e
       join public.people p on p.id = e.person_id

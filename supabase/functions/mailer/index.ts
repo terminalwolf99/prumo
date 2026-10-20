@@ -60,7 +60,7 @@ async function drain() {
         const attachments = []
         if (WITH_SLIP.includes(job.kind)) {
           if (template === undefined) template = await loadTemplate()
-          const pdf = await renderSlip(d, template)
+          const pdf = await renderSlip(d, template, APP_URL)
           attachments.push({ filename: slipFilename(d), content: Buffer.from(pdf), contentType: 'application/pdf' })
         }
         await send({ to: { name: d.full_name, address: d.email }, subject, html, text, attachments })
@@ -73,11 +73,47 @@ async function drain() {
   }
 }
 
+// Fake test people (@teste.invalid) never get mail: their rows are closed
+// straight away, so turning the sender on later sends nothing to them.
+async function closeTestAddresses() {
+  await sql`
+    update public.email_outbox o
+       set sent_at = now(), last_error = 'endereço de teste: não enviado'
+      from public.enrollments e
+      join public.people p on p.id = e.person_id
+     where o.enrollment_id = e.id and o.sent_at is null and p.email like '%.invalid'`
+}
+
+async function recordState() {
+  await sql`
+    insert into private.mailer_state (configured, checked_at) values (${senders.length > 0}, now())
+    on conflict (id) do update set configured = excluded.configured, checked_at = excluded.checked_at`
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method' }, 405)
   if (!(await sameSecret(req.headers.get('x-mailer-secret'), Deno.env.get('MAILER_SECRET')))) {
     return json({ error: 'unauthorized' }, 401)
   }
+  await recordState()
+  await closeTestAddresses()
+
+  // {"test_to": "..."}: the setup script checks the sender with one real e-mail.
+  const body = await req.json().catch(() => ({}))
+  if (typeof body.test_to === 'string') {
+    if (!senders.length) return json({ ok: false, error: 'smtp_not_configured' }, 503)
+    try {
+      await send({
+        to: body.test_to,
+        subject: 'Prumo: teste de envio',
+        text: 'Se esta mensagem chegou, o Prumo já consegue enviar códigos de acesso e comprovantes.',
+      })
+      return json({ ok: true })
+    } catch (e) {
+      return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 502)
+    }
+  }
+
   // Without a sender, leave the queue untouched so nothing burns its retries.
   if (!senders.length) return json({ skipped: 'smtp_not_configured' }, 503)
   EdgeRuntime.waitUntil(drain().catch((e) => console.error('drain failed:', e)))

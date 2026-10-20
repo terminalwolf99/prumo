@@ -1,12 +1,14 @@
-// The confirmation slip. Every student gets the same PDF; only the stamped
-// fields change. With an uploaded template (private.slip_template) the fields
-// are stamped where settings.slip_layout says; without one, a built-in
-// placeholder design is drawn so the pipeline works before the final design exists.
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'npm:pdf-lib@1.17.1'
-import { brtDate, brtTimeMs } from './brt.ts'
+// The confirmation slip. Every student gets the same document; only the
+// stamped fields change (name, subject, arrival time, code, QR). With an
+// uploaded template (private.slip_template) the fields are stamped where
+// settings.slip_layout says; otherwise the built-in design below is drawn.
+import { degrees, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'npm:pdf-lib@1.17.1'
+import qrcode from 'npm:qrcode-generator@2.0.4'
+import { brtDate, brtStamp, brtTimeMs } from './brt.ts'
 import type { SlipData } from './db.ts'
+import { LOGO_PNG_BASE64, LOGO_SIZE } from './logo.ts'
 
-type FieldKey = 'name' | 'class' | 'course' | 'round' | 'schedule' | 'code' | 'applied_at'
+type FieldKey = 'name' | 'class' | 'course' | 'round' | 'schedule' | 'code' | 'applied_at' | 'qr'
 type FieldStyle = {
   x: number; y: number; page?: number
   size?: number; minSize?: number; maxWidth?: number
@@ -16,9 +18,12 @@ type FieldStyle = {
 type Layout = { fields?: Partial<Record<FieldKey, FieldStyle>> }
 
 const INK = rgb(0.09, 0.13, 0.16)
-const MUTED = rgb(0.38, 0.44, 0.48)
+const MUTED = rgb(0.4, 0.45, 0.5)
 const BRAND = rgb(0, 0.208, 0.51) // school navy #003582
-const SAND = rgb(0.96, 0.93, 0.87)
+const CARD = rgb(0.945, 0.953, 0.976)
+const RULE = rgb(0.82, 0.85, 0.9)
+const OK = rgb(0.118, 0.49, 0.322)
+const OK_SOFT = rgb(0.86, 0.94, 0.89)
 
 function hex(c?: string) {
   if (!c || !/^#?[0-9a-f]{6}$/i.test(c)) return INK
@@ -48,7 +53,31 @@ function stamp(page: PDFPage, font: PDFFont, text: string, f: FieldStyle) {
   page.drawText(t, { x, y: f.y, size, font, color: hex(f.color) })
 }
 
-function fieldValues(d: SlipData): Record<FieldKey, string> {
+// QR with the standard 4-module quiet zone; (x, y) is its lower-left corner.
+function drawQr(page: PDFPage, text: string, x: number, y: number, size: number) {
+  const qr = qrcode(0, 'M')
+  qr.addData(text)
+  qr.make()
+  const n = qr.getModuleCount()
+  const cell = size / (n + 8)
+  page.drawRectangle({ x, y, width: size, height: size, color: rgb(1, 1, 1) })
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (!qr.isDark(r, c)) continue
+      page.drawRectangle({ x: x + (c + 4) * cell, y: y + size - (r + 5) * cell, width: cell + 0.05, height: cell + 0.05, color: INK })
+    }
+  }
+}
+
+export function formatCode(code: string) {
+  return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code
+}
+
+export function verifyUrl(appUrl: string, code: string) {
+  return `${appUrl.replace(/#.*$/, '').replace(/\/?$/, '/')}#/verificar/${formatCode(code)}`
+}
+
+function fieldValues(d: SlipData): Record<Exclude<FieldKey, 'qr'>, string> {
   return {
     name: d.full_name,
     class: d.class_name ?? (d.grade ? `${d.grade}º ano` : ''),
@@ -60,11 +89,7 @@ function fieldValues(d: SlipData): Record<FieldKey, string> {
   }
 }
 
-export function formatCode(code: string) {
-  return code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code
-}
-
-async function fromTemplate(template: Uint8Array, layout: Layout, d: SlipData) {
+async function fromTemplate(template: Uint8Array, layout: Layout, d: SlipData, appUrl: string) {
   const doc = await PDFDocument.load(template)
   const regular = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
@@ -74,16 +99,20 @@ async function fromTemplate(template: Uint8Array, layout: Layout, d: SlipData) {
     : { name: { x: first.getWidth() / 2, y: first.getHeight() / 2, size: 28, align: 'center', bold: true } as FieldStyle }
   const values = fieldValues(d)
   for (const [key, style] of Object.entries(fields) as [FieldKey, FieldStyle][]) {
-    const value = values[key]
-    if (!value || !style) continue
+    if (!style) continue
     const page = doc.getPage(Math.min(style.page ?? 0, doc.getPageCount() - 1))
-    stamp(page, style.bold ? bold : regular, value, style)
+    if (key === 'qr') {
+      drawQr(page, verifyUrl(appUrl, d.code), style.x, style.y, style.size ?? 96)
+      continue
+    }
+    const value = values[key]
+    if (value) stamp(page, style.bold ? bold : regular, value, style)
   }
   return doc
 }
 
-// Placeholder design, A4 portrait, until the real template is uploaded.
-async function builtIn(d: SlipData) {
+// The default design, A4 portrait.
+async function builtIn(d: SlipData, appUrl: string) {
   const doc = await PDFDocument.create()
   const page = doc.addPage([595.28, 841.89])
   const W = page.getWidth()
@@ -91,60 +120,95 @@ async function builtIn(d: SlipData) {
   const M = 56
   const regular = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
+  const mono = await doc.embedFont(StandardFonts.CourierBold)
+  const logo = await doc.embedPng(Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0)))
   const v = fieldValues(d)
   const text = (t: string, x: number, y: number, size: number, font = regular, color = INK) =>
     page.drawText(safe(font, t), { x, y, size, font, color })
+  const right = (t: string, xr: number, y: number, size: number, font = regular, color = INK) => {
+    const s = safe(font, t)
+    page.drawText(s, { x: xr - font.widthOfTextAtSize(s, size), y, size, font, color })
+  }
 
-  page.drawRectangle({ x: 0, y: H - 150, width: W, height: 150, color: BRAND })
-  text(safe(bold, d.school_name.toUpperCase()), M, H - 70, 11, bold, rgb(1, 1, 1))
-  text('Comprovante de inscrição', M, H - 104, 26, bold, rgb(1, 1, 1))
-  text(d.round_title, M, H - 128, 12, regular, rgb(0.8, 0.86, 0.95))
+  if (d.is_test) {
+    page.drawText('TESTE', { x: 120, y: 300, size: 150, font: bold, color: rgb(0.85, 0.2, 0.2), opacity: 0.07, rotate: degrees(35) })
+  }
 
-  let y = H - 210
-  text('ESTUDANTE', M, y, 9, bold, MUTED)
-  y -= 34
-  page.drawText(safe(bold, v.name), { x: M, y, size: fit(bold, safe(bold, v.name), 30, W - 2 * M, 14), font: bold, color: INK })
-  if (v.class) { y -= 22; text(v.class, M, y, 13, regular, MUTED) }
+  // header: school logo, document name, round
+  const lw = 172
+  const lh = lw * LOGO_SIZE.height / LOGO_SIZE.width
+  page.drawImage(logo, { x: M, y: H - 52 - lh, width: lw, height: lh })
+  right('COMPROVANTE DE INSCRIÇÃO', W - M, H - 72, 9.5, bold, BRAND)
+  const roundSize = fit(regular, safe(regular, d.round_title), 11, 250, 8)
+  right(d.round_title, W - M, H - 90, roundSize, regular, MUTED)
+  page.drawLine({ start: { x: M, y: H - 124 }, end: { x: W - M, y: H - 124 }, thickness: 1.2, color: BRAND })
 
-  y -= 48
-  page.drawRectangle({ x: M - 16, y: y - 132, width: W - 2 * M + 32, height: 160, color: SAND })
-  text('DISCIPLINA', M, y, 9, bold, MUTED)
-  y -= 30
-  page.drawText(safe(bold, v.course), { x: M, y, size: fit(bold, safe(bold, v.course), 22, W - 2 * M, 12), font: bold, color: BRAND })
+  // status pill
+  const promoted = d.confirmed_at && new Date(d.confirmed_at).getTime() - new Date(d.applied_at).getTime() > 1000
+  const pill = d.is_test ? 'INSCRIÇÃO DE TESTE' : promoted ? 'VAGA CONFIRMADA · DA LISTA DE ESPERA' : 'VAGA CONFIRMADA'
+  const pw = bold.widthOfTextAtSize(pill, 9) + 24
+  page.drawRectangle({ x: M, y: H - 172, width: pw, height: 22, color: d.is_test ? rgb(0.99, 0.9, 0.88) : OK_SOFT })
+  text(pill, M + 12, H - 164, 9, bold, d.is_test ? rgb(0.75, 0.2, 0.15) : OK)
+
+  // student
+  text('ESTUDANTE', M, H - 210, 8.5, bold, MUTED)
+  const name = safe(bold, v.name)
+  page.drawText(name, { x: M, y: H - 244, size: fit(bold, name, 30, W - 2 * M, 14), font: bold, color: INK })
+  if (v.class) text(v.class, M, H - 266, 12, regular, MUTED)
+
+  // subject card
   const rows: [string, string | null][] = [
     ['Área', d.course_area], ['Professor(a)', d.teacher_names], ['Horário', d.schedule], ['Local', d.location],
   ]
-  for (const [label, value] of rows) {
-    if (!value) continue
-    y -= 22
-    text(label, M, y, 11, bold, INK)
-    text(value, M + 100, y, 11)
+  const shown = rows.filter(([, value]) => value)
+  const cardTop = H - 300
+  const cardH = 92 + shown.length * 20
+  page.drawRectangle({ x: M, y: cardTop - cardH, width: W - 2 * M, height: cardH, color: CARD })
+  page.drawRectangle({ x: M, y: cardTop - cardH, width: 4, height: cardH, color: BRAND })
+  text('DISCIPLINA', M + 22, cardTop - 26, 8.5, bold, MUTED)
+  const course = safe(bold, v.course)
+  page.drawText(course, { x: M + 22, y: cardTop - 56, size: fit(bold, course, 22, W - 2 * M - 44, 12), font: bold, color: BRAND })
+  let y = cardTop - 84
+  for (const [label, value] of shown) {
+    text(label, M + 22, y, 10.5, bold, INK)
+    const val = safe(regular, value!)
+    page.drawText(val, { x: M + 122, y, size: fit(regular, val, 10.5, W - 2 * M - 144, 8), font: regular, color: INK })
+    y -= 20
   }
 
-  y = Math.min(y, H - 520) - 60
-  text('INSCRIÇÃO REGISTRADA EM', M, y, 9, bold, MUTED)
-  text('CÓDIGO', W / 2 + 20, y, 9, bold, MUTED)
-  y -= 24
-  text(brtDate(d.applied_at), M, y, 16, bold)
-  text(v.code, W / 2 + 20, y, 16, bold)
-  y -= 20
-  text(`${brtTimeMs(d.applied_at)} · horário de Brasília`, M, y, 11, regular, MUTED)
+  // arrival time + code (left), verification QR (right)
+  const qrSize = 124
+  const qrX = W - M - qrSize
+  // sits a steady gap under the subject card, never into the footer
+  const baseY = Math.max(96, cardTop - cardH - 230)
+  text('INSCRIÇÃO REGISTRADA EM', M, baseY + 150, 8.5, bold, MUTED)
+  text(brtDate(d.applied_at), M, baseY + 124, 20, bold, INK)
+  text(`às ${brtTimeMs(d.applied_at)} · horário de Brasília`, M, baseY + 104, 11, regular, MUTED)
+  if (promoted) text(`Vaga liberada da lista de espera em ${brtStamp(d.confirmed_at!)}.`, M, baseY + 84, 9.5, regular, INK)
+  text('CÓDIGO', M, baseY + 50, 8.5, bold, MUTED)
+  text(v.code, M, baseY + 22, 24, mono, INK)
 
-  if (d.confirmed_at && new Date(d.confirmed_at).getTime() - new Date(d.applied_at).getTime() > 1000) {
-    y -= 30
-    text(`Vaga liberada da lista de espera em ${brtDate(d.confirmed_at)} às ${brtTimeMs(d.confirmed_at)}.`, M, y, 11, regular, INK)
-  }
+  drawQr(page, verifyUrl(appUrl, d.code), qrX, baseY + 20, qrSize)
+  const site = appUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const cx = qrX + qrSize / 2
+  const cap1 = 'Confira a autenticidade'
+  page.drawText(cap1, { x: cx - regular.widthOfTextAtSize(cap1, 8.5) / 2, y: baseY + 8, size: 8.5, font: regular, color: MUTED })
+  const cap2 = safe(regular, site)
+  const cap2Size = fit(regular, cap2, 8, qrSize + 40, 6)
+  page.drawText(cap2, { x: cx - regular.widthOfTextAtSize(cap2, cap2Size) / 2, y: baseY - 4, size: cap2Size, font: regular, color: MUTED })
 
-  page.drawLine({ start: { x: M, y: 90 }, end: { x: W - M, y: 90 }, thickness: 0.6, color: MUTED })
-  text('Vaga confirmada por ordem de chegada. Guarde este comprovante.', M, 70, 10, regular, MUTED)
-  text(`Prumo · ${d.school_name} · Florianópolis/SC`, M, 54, 10, regular, MUTED)
+  // footer
+  page.drawLine({ start: { x: M, y: 74 }, end: { x: W - M, y: 74 }, thickness: 0.6, color: RULE })
+  text(`Prumo · ${d.school_name} · Florianópolis/SC`, M, 56, 9, regular, MUTED)
+  right(`Emitido em ${brtStamp(new Date()).replace(/,\d{3}$/, '')}`, W - M, 56, 9, regular, MUTED)
   return doc
 }
 
-export async function renderSlip(d: SlipData, template: Uint8Array | null): Promise<Uint8Array> {
-  const doc = template ? await fromTemplate(template, (d.slip_layout ?? {}) as Layout, d) : await builtIn(d)
-  doc.setTitle(`Comprovante ${formatCode(d.code)} — ${d.course_title}`)
+export async function renderSlip(d: SlipData, template: Uint8Array | null, appUrl: string): Promise<Uint8Array> {
+  const doc = template ? await fromTemplate(template, (d.slip_layout ?? {}) as Layout, d, appUrl) : await builtIn(d, appUrl)
+  doc.setTitle(`Comprovante ${formatCode(d.code)} · ${d.course_title}`)
   doc.setAuthor(d.school_name)
+  doc.setCreator('Prumo')
   doc.setCreationDate(new Date())
   return await doc.save()
 }
