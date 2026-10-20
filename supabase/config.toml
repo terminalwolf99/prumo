@@ -197,7 +197,7 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+email_sent = 200
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -243,23 +243,23 @@ otp_expiry = 600
 # Free-tier projects only accept custom templates once custom SMTP is on, which
 # is why both live in this one block. Until then Supabase sends a link, which
 # the app also accepts.
-#>> email
-#@ [auth.email.smtp]
-#@ enabled = true
-#@ host = "smtp.gmail.com"
-#@ port = 465
-#@ user = "env(AUTH_SMTP_USER)"
-#@ pass = "env(AUTH_SMTP_PASS)"
-#@ admin_email = "env(AUTH_SMTP_USER)"
-#@ sender_name = "Prumo · Escola Autonomia"
-#@
-#@ [auth.email.template.confirmation]
-#@ subject = "Seu código de acesso ao Prumo"
-#@ content_path = "./supabase/templates/codigo.html"
-#@
-#@ [auth.email.template.magic_link]
-#@ subject = "Seu código de acesso ao Prumo"
-#@ content_path = "./supabase/templates/codigo.html"
+#>> email (ligado por configurar-email.ps1)
+[auth.email.smtp]
+enabled = true
+host = "smtp.gmail.com"
+port = 465
+user = "hlyman99@gmail.com"
+pass = "env(AUTH_SMTP_PASS)"
+admin_email = "hlyman99@gmail.com"
+sender_name = "Prumo · Escola Autonomia"
+
+[auth.email.template.confirmation]
+subject = "Seu código de acesso ao Prumo"
+content_path = "./supabase/templates/codigo.html"
+
+[auth.email.template.magic_link]
+subject = "Seu código de acesso ao Prumo"
+content_path = "./supabase/templates/codigo.html"
 #<< email
 
 # Uncomment to customize email template

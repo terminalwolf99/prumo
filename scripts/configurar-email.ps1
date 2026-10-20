@@ -84,21 +84,29 @@ if ($school) { $authHost = $shost; $authPort = $sport; $authUser = $suser; $auth
 $block = [regex]::Match($text, '(?s)#>> email[^\n]*\n(.*?)#<< email')
 if ($block.Success) {
   $on = ($block.Groups[1].Value -split "`r?`n" | ForEach-Object { $_ -replace '^#@ ?', '' }) -join "`n"
+  # the address is written in plain text (it's not secret) so a later plain
+  # `supabase config push` can't overwrite it; only the password stays env-only
   $on = $on -replace 'host = "[^"]*"', "host = `"$authHost`"" -replace 'port = \d+', "port = $authPort"
+  $on = $on -replace '(?m)^user = "[^"]*"', "user = `"$authUser`"" -replace '(?m)^admin_email = "[^"]*"', "admin_email = `"$authUser`""
   $text = $text.Substring(0, $block.Index) + "#>> email (ligado por configurar-email.ps1)`n" + $on + '#<< email' + $text.Substring($block.Index + $block.Length)
 }
-$text = $text -replace '(?m)^email_sent = \d+', 'email_sent = 100'
+$text = $text -replace '(?m)^email_sent = \d+', 'email_sent = 200'
 if ($DryRun) {
-  Write-Host "Ligaria [auth.email.smtp] com $authHost`:$authPort ($authUser), o modelo do código e email_sent = 100."
+  Write-Host "Ligaria [auth.email.smtp] com $authHost`:$authPort ($authUser), o modelo do código e email_sent = 200."
 } else {
   [IO.File]::WriteAllText($config, $text, $utf8)
   $env:AUTH_SMTP_USER = $authUser
   $env:AUTH_SMTP_PASS = $authPass
+  # The CLI prints progress on stderr; Windows PowerShell would treat that as a
+  # fatal error under 'Stop', so relax it just for this call.
+  $prevPref = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
   try {
     Push-Location $root
-    $out = "y`nn`n" | & $sb config push --project-ref $ref 2>&1 | Out-String
+    $out = ("y`nn`n" | & $sb config push --project-ref $ref 2>&1 | ForEach-Object { "$_" }) -join "`n"
   } finally {
     Pop-Location
+    $ErrorActionPreference = $prevPref
     Remove-Item Env:AUTH_SMTP_USER, Env:AUTH_SMTP_PASS -ErrorAction SilentlyContinue
   }
   if ($out -match '_tag.{0,3}Error|unexpected status|failed') {
