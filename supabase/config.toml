@@ -235,29 +235,32 @@ otp_length = 6
 otp_expiry = 600
 
 # Login codes go out through this sender (Supabase's built-in one only reaches
-# the project's own team). Fill supabase/.env, uncomment, then `supabase config push`.
-# Raise [auth.rate_limit] email_sent to ~200 at the same time.
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.gmail.com"
-# port = 465
-# user = "env(AUTH_SMTP_USER)"
-# pass = "env(AUTH_SMTP_PASS)"
-# admin_email = "env(AUTH_SMTP_USER)"
-# sender_name = "Prumo · Escola Autonomia"
-
-# Sign-in sends a 6-digit code instead of a link (links open in the wrong
+# the project's own team). scripts/configurar-email.ps1 switches this block on
+# (drops the "#@ " prefixes, fills host/port, raises email_sent) and pushes it;
+# the user and password come from the environment, never from this file.
+# Sign-in then sends a 6-digit code instead of a link (links open in the wrong
 # browser on phones). New users get "confirmation", returning ones "magic_link".
-# Free-tier projects only accept custom templates once custom SMTP is on, so
-# uncomment these together with [auth.email.smtp]. Until then Supabase sends a
-# link, which the app also accepts.
-# [auth.email.template.confirmation]
-# subject = "Seu código de acesso ao Prumo"
-# content_path = "./supabase/templates/codigo.html"
-#
-# [auth.email.template.magic_link]
-# subject = "Seu código de acesso ao Prumo"
-# content_path = "./supabase/templates/codigo.html"
+# Free-tier projects only accept custom templates once custom SMTP is on, which
+# is why both live in this one block. Until then Supabase sends a link, which
+# the app also accepts.
+#>> email
+#@ [auth.email.smtp]
+#@ enabled = true
+#@ host = "smtp.gmail.com"
+#@ port = 465
+#@ user = "env(AUTH_SMTP_USER)"
+#@ pass = "env(AUTH_SMTP_PASS)"
+#@ admin_email = "env(AUTH_SMTP_USER)"
+#@ sender_name = "Prumo · Escola Autonomia"
+#@
+#@ [auth.email.template.confirmation]
+#@ subject = "Seu código de acesso ao Prumo"
+#@ content_path = "./supabase/templates/codigo.html"
+#@
+#@ [auth.email.template.magic_link]
+#@ subject = "Seu código de acesso ao Prumo"
+#@ content_path = "./supabase/templates/codigo.html"
+#<< email
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

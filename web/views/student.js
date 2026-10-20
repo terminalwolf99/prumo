@@ -141,7 +141,8 @@ function Hero({ round, phase, now, used }) {
     </div>
     <div class="hero-side">
       ${phase === 'soon' && html`<${Countdown} to=${opens} now=${now} />
-        <p class="hero-tip">A inscrição libera automaticamente no horário de abertura, pelo relógio do servidor.</p>`}
+        <p class="hero-tip">A inscrição libera automaticamente no horário de abertura, pelo relógio do servidor.</p>
+        <button class="btn sm hero-cal" onClick=${() => saveIcs(round)}>Lembrar no calendário</button>`}
       ${closingSoon && html`<${Countdown} to=${closes} now=${now} /><p class="hero-tip">para o fim das inscrições</p>`}
       <div class="choices" aria-label="Suas escolhas">
         <span class="choices-num">${used}<small>/${round.max_choices}</small></span>
@@ -315,4 +316,32 @@ function MyEnrollments({ list, roundId, reload }) {
       </li>`)}
     </ul>`}
   </section>`
+}
+
+// A calendar file for the opening, with a reminder 15 minutes before.
+function saveIcs(round) {
+  const stamp = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const esc = (t) => t.replace(/[\\;,]/g, (m) => `\\${m}`).replace(/\n/g, '\\n')
+  const start = new Date(round.opens_at)
+  const end = new Date(start.getTime() + 15 * 60 * 1000)
+  const url = location.origin + location.pathname
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prumo//Escola Autonomia//PT', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:abertura-${round.id}@prumo`,
+    `DTSTAMP:${stamp(new Date())}`,
+    `DTSTART:${stamp(start)}`,
+    `DTEND:${stamp(end)}`,
+    `SUMMARY:${esc(`Abertura das inscrições: ${round.title}`)}`,
+    `DESCRIPTION:${esc(`As vagas são por ordem de chegada. Entre no Prumo antes do horário: ${url}`)}`,
+    `URL:${url}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT15M', `DESCRIPTION:${esc('Inscrições abrem em 15 minutos')}`, 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].join('\r\n')
+  const href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }))
+  const a = Object.assign(document.createElement('a'), { href, download: 'abertura-inscricoes.ics' })
+  document.body.append(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 30_000)
 }

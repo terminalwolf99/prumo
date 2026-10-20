@@ -1,0 +1,16 @@
+{
+  "name": "Prumo · Escola Autonomia",
+  "short_name": "Prumo",
+  "description": "Inscrições nos aprofundamentos do Ensino Médio da Escola Autonomia.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F4EFE6",
+  "theme_color": "#003582",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

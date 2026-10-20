@@ -1,12 +1,17 @@
 # Free Supabase projects pause after 7 days without requests; one call a day
-# keeps Prumo awake. GitHub turns scheduled workflows off after 60 days with
-# no commits in a public repo; "Run workflow" (or any commit) turns it back on.
+# keeps Prumo awake. GitHub switches scheduled workflows off after 60 days with
+# no commits in a public repo, so each run also re-enables this workflow.
 name: Manter banco acordado
 
 on:
   schedule:
     - cron: '17 11 * * *' # every day, 08:17 Brasília
+  push:
+    paths: ['.github/workflows/keepalive.yml'] # a change to this file runs it once, to prove it works
   workflow_dispatch:
+
+permissions:
+  actions: write
 
 jobs:
   ping:
@@ -17,3 +22,7 @@ jobs:
           curl -fsS -X POST "https://qvusibdisuvwsfflyazq.supabase.co/rest/v1/rpc/server_time" \
             -H "apikey: sb_publishable_uGD4wK4WCPFoBtPuN-Vmvw_Xglx97Qe" \
             -H "Content-Type: application/json" -d '{}'
+      - name: Keep this schedule from being switched off
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keepalive.yml/enable"

@@ -1,5 +1,5 @@
 import { html, useCallback, useEffect, useMemo, useState } from '../../lib/deps.js'
-import { friendly, must, rpc, sb, SEATED, watch } from '../../lib/db.js'
+import { ACTIVE, friendly, must, rpc, sb, SEATED, watch } from '../../lib/db.js'
 import { downloadSlip } from '../../lib/slip.js'
 import { fmtDate, fmtDay, fmtMs, fmtTime, fmtWhen, fromLocalInput, serverNow, toLocalInput } from '../../lib/time.js'
 import {
@@ -49,7 +49,7 @@ export function RoundsTab() {
       ${rounds.map((r) => {
         const [label, kind] = roundState(r, now)
         return html`<button key=${r.id} class="round-item ${r.id === round?.id ? 'on' : ''}" onClick=${() => setSelected(r.id)}>
-          <span class="chip ${kind}">${label}</span>
+          <span class="row small-gap"><span class="chip ${kind}">${label}</span>${r.is_test && html`<span class="chip test">teste</span>`}</span>
           <b>${r.title}</b>
           <span class="muted small">${fmtDay(r.opens_at)} ${fmtTime(r.opens_at)} → ${fmtDay(r.closes_at)} ${fmtTime(r.closes_at)}</span>
         </button>`
@@ -57,7 +57,8 @@ export function RoundsTab() {
     </aside>
 
     <section class="round-detail">
-      ${round ? html`<${RoundHeader} round=${round} courses=${list} now=${now} onEdit=${() => setEditRound(round)} reload=${load} />
+      ${round ? html`<${RoundHeader} round=${round} courses=${list} now=${now} onEdit=${() => setEditRound(round)} reload=${load}
+          onDuplicated=${(id) => { setSelected(id); load() }} />
         <div class="section-head">
           <h2 class="h3">Disciplinas <span class="muted">(${list.length})</span></h2>
           <button class="btn primary sm" onClick=${() => setEditCourse({ round_id: round.id, sort_order: list.length })}>Nova disciplina</button>
@@ -79,6 +80,7 @@ export function RoundsTab() {
                 </td>
               </tr>`)}</tbody>
             </table></div>`}
+        ${list.length > 0 && html`<${Missing} key=${round.id} round=${round} />`}
       ` : html`<${Empty} title="Nenhuma rodada ainda." />`}
     </section>
 
@@ -95,7 +97,7 @@ export function RoundsTab() {
   </div>`
 }
 
-function RoundHeader({ round, courses, now, onEdit, reload }) {
+function RoundHeader({ round, courses, now, onEdit, reload, onDuplicated }) {
   const [label, kind] = roundState(round, now)
   const seats = courses.reduce((a, c) => a + c.capacity, 0)
   const taken = courses.reduce((a, c) => a + c.confirmed_count, 0)
@@ -130,9 +132,45 @@ function RoundHeader({ round, courses, now, onEdit, reload }) {
     reload()
   }
 
+  async function duplicate() {
+    const r = await ask({
+      title: 'Duplicar rodada',
+      body: 'Cria uma cópia em rascunho, com as mesmas disciplinas e vagas e nenhuma inscrição. Depois é só ajustar as datas.',
+      input: { label: 'Nome da nova rodada', placeholder: `${round.title} (cópia)` },
+      confirm: 'Duplicar',
+    })
+    if (!r.ok) return
+    try {
+      const id = await rpc('duplicate_round', { p_round_id: round.id, p_title: r.value || null })
+      toast('Cópia criada como rascunho. Ajuste as datas antes de publicar.', 'ok')
+      onDuplicated(id)
+    } catch (e) { toast(friendly(e), 'error') }
+  }
+
+  async function exportRound() {
+    try {
+      const rows = await must(sb.from('enrollments')
+        .select('status, applied_at, code, course:courses(title, sort_order), person:people!enrollments_person_id_fkey(full_name, email, grade, class_name)')
+        .eq('round_id', round.id).order('applied_at').order('id'))
+      const label = { confirmed: 'Confirmada', drop_requested: 'Desistência pendente', waitlisted: 'Espera', dropped: 'Desistiu', removed: 'Removida', left_waitlist: 'Saiu da espera' }
+      const rank = (st) => (SEATED.includes(st) ? 0 : st === 'waitlisted' ? 1 : 2)
+      rows.sort((a, b) => a.course.sort_order - b.course.sort_order || a.course.title.localeCompare(b.course.title)
+        || rank(a.status) - rank(b.status) || new Date(a.applied_at) - new Date(b.applied_at))
+      const pos = {}
+      const data = [['Disciplina', 'Posição', 'Situação', 'Nome', 'E-mail', 'Ano', 'Turma', 'Data', 'Hora (Brasília)', 'Código']]
+      for (const r of rows) {
+        const k = `${r.course.title}|${rank(r.status)}`
+        pos[k] = (pos[k] ?? 0) + 1
+        data.push([r.course.title, pos[k], label[r.status], r.person.full_name, r.person.email, r.person.grade ?? '',
+          r.person.class_name ?? '', fmtDate(r.applied_at), fmtMs(r.applied_at), formatCode(r.code)])
+      }
+      saveCsv(`${round.title} - inscricoes.csv`, data)
+    } catch (e) { toast(friendly(e), 'error') }
+  }
+
   return html`<div class="round-head card">
     <div class="round-head-main">
-      <span class="chip ${kind}">${label}</span>
+      <span class="row small-gap"><span class="chip ${kind}">${label}</span>${round.is_test && html`<span class="chip test">rodada de teste</span>`}</span>
       <h1 class="h2">${round.title}</h1>
       <p class="muted">
         Abre <b>${fmtWhen(round.opens_at)}</b> · fecha <b>${fmtWhen(round.closes_at)}</b> <span class="small">(Brasília)</span><br />
@@ -148,6 +186,8 @@ function RoundHeader({ round, courses, now, onEdit, reload }) {
         ${round.published ? 'Despublicar' : 'Publicar para estudantes'}
       <//>
       <button class="btn ghost" onClick=${onEdit}>Editar</button>
+      <button class="btn ghost" onClick=${duplicate}>Duplicar</button>
+      <button class="btn ghost" onClick=${exportRound}>Exportar planilha</button>
       <button class="btn ghost danger-text" onClick=${remove}>Excluir</button>
     </div>
   </div>`
@@ -307,6 +347,7 @@ function CourseForm({ course, rounds, onDone }) {
 function mailState(outbox = []) {
   const last = [...outbox].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
   if (!last) return null
+  if (last.sent_at && last.last_error?.startsWith('endereço de teste')) return ['não enviado (teste)', 'off', 'Endereço de teste: nenhum e-mail sai']
   if (last.sent_at) return ['enviado', 'ok', `E-mail enviado ${fmtWhen(last.sent_at)}`]
   if (last.attempts >= 6) return ['falhou', 'bad', last.last_error ?? '']
   if (last.last_error) return ['tentando', 'wait', last.last_error]
@@ -320,6 +361,7 @@ function csv(rows) {
 
 function Roster({ course, round }) {
   const [rows, setRows] = useState(null)
+  const [adding, setAdding] = useState(false)
   const load = useCallback(async () => {
     try {
       setRows(await must(sb.from('enrollments')
@@ -361,9 +403,7 @@ function Roster({ course, round }) {
       i + 1, { confirmed: 'Confirmada', drop_requested: 'Desistência pendente', waitlisted: 'Espera', dropped: 'Desistiu', removed: 'Removida', left_waitlist: 'Saiu da espera' }[r.status],
       r.person.full_name, r.person.email, r.person.grade ?? '', r.person.class_name ?? '', fmtDate(r.applied_at), fmtMs(r.applied_at), formatCode(r.code),
     ]))
-    const url = URL.createObjectURL(new Blob([csv(data)], { type: 'text/csv;charset=utf-8' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: `${course.title} - inscritos.csv` })
-    a.click(); setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    saveCsv(`${course.title} - inscritos.csv`, data)
   }
 
   const Row = (r, i) => {
@@ -392,8 +432,12 @@ function Roster({ course, round }) {
   return html`<div class="roster">
     <div class="row between wrap">
       <p class="muted">${[course.schedule, course.teacher_names, 'ordem de chegada, ao milissegundo (Brasília)'].filter(Boolean).join(' · ')}</p>
-      <button class="btn ghost sm" onClick=${exportCsv} disabled=${!rows.length}>Exportar planilha</button>
+      <div class="row">
+        <button class="btn ghost sm" onClick=${() => setAdding(!adding)}>${adding ? 'Fechar' : 'Inscrever estudante'}</button>
+        <button class="btn ghost sm" onClick=${exportCsv} disabled=${!rows.length}>Exportar planilha</button>
+      </div>
     </div>
+    ${adding && html`<${StaffEnroll} course=${course} round=${round} taken=${rows} onDone=${() => { setAdding(false); load() }} />`}
     <${SeatMeter} capacity=${course.capacity} taken=${course.confirmed_count} waiting=${course.waitlist_count} />
     ${rows.length === 0 && html`<${Empty} title="Ninguém inscrito ainda." />`}
     ${seated.length > 0 && html`<h3 class="h4">Com vaga (${seated.length}/${course.capacity})</h3>
@@ -403,4 +447,121 @@ function Roster({ course, round }) {
     ${ended.length > 0 && html`<details><summary class="h4">Saíram (${ended.length})</summary>
       <div class="table-wrap"><table class="table"><tbody>${ended.map(Row)}</tbody></table></div></details>`}
   </div>`
+}
+
+// ---------------------------------------------------------------- who hasn't signed up
+
+function Missing({ round }) {
+  const [data, setData] = useState(null)
+  const [open, setOpen] = useState(false)
+  const load = useCallback(async () => {
+    try {
+      const [people, enr] = await Promise.all([
+        must(sb.from('people').select('id, full_name, email, grade, class_name').eq('role', 'student').eq('active', true)
+          .order('class_name').order('full_name')),
+        must(sb.from('enrollments').select('person_id').eq('round_id', round.id).in('status', ACTIVE)),
+      ])
+      const enrolled = new Set(enr.map((e) => e.person_id))
+      const pool = people.filter(inPool(round))
+      setData({ total: pool.length, missing: pool.filter((p) => !enrolled.has(p.id)) })
+    } catch (e) { toast(friendly(e), 'error') }
+  }, [round.id, round.is_test])
+  useEffect(() => { load() }, [load])
+  useEffect(() => watch(`missing-${round.id}`, [`enrollments?round_id=eq.${round.id}`], load, 800), [load, round.id])
+
+  if (!data || data.total === 0) return null
+  const done = data.total - data.missing.length
+
+  async function copyEmails() {
+    try {
+      await navigator.clipboard.writeText(data.missing.map((p) => p.email).join(', '))
+      toast(`${data.missing.length} e-mails copiados. Cole no campo "Para" do e-mail.`, 'ok')
+    } catch { toast('Não deu para copiar. Use "Exportar".', 'error') }
+  }
+
+  return html`<section class="card missing">
+    <div class="row between wrap">
+      <p><b>${done}</b> de ${data.total} estudantes já têm inscrição nesta rodada${data.missing.length ? html` · <b>${data.missing.length}</b> ainda não` : ' · todos inscritos'}.</p>
+      ${data.missing.length > 0 && html`<div class="row wrap">
+        <button class="btn ghost sm" onClick=${() => setOpen(!open)}>${open ? 'Esconder' : 'Ver quem falta'}</button>
+        <button class="btn ghost sm" onClick=${copyEmails}>Copiar e-mails</button>
+        <button class="btn ghost sm" onClick=${() => saveCsv(`${round.title} - sem inscricao.csv`,
+          [['Nome', 'E-mail', 'Ano', 'Turma'], ...data.missing.map((p) => [p.full_name, p.email, p.grade ?? '', p.class_name ?? ''])])}>Exportar</button>
+      </div>`}
+    </div>
+    <div class="missing-bar" aria-hidden="true"><i style=${`width:${(done / data.total) * 100}%`}></i></div>
+    ${open && html`<ul class="missing-list">
+      ${data.missing.map((p) => html`<li key=${p.id}><b>${p.full_name}</b> <span class="muted small">${[p.class_name, p.email].filter(Boolean).join(' · ')}</span></li>`)}
+    </ul>`}
+  </section>`
+}
+
+// ---------------------------------------------------------------- hand enrollment
+
+function StaffEnroll({ course, round, taken, onDone }) {
+  const [people, setPeople] = useState(null)
+  const [q, setQ] = useState('')
+  const [pick, setPick] = useState(null)
+  const [force, setForce] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const full = course.confirmed_count >= course.capacity
+
+  useEffect(() => {
+    must(sb.from('people').select('id, full_name, email, grade, class_name').eq('role', 'student').eq('active', true).order('full_name'))
+      .then((p) => {
+        const active = new Set(taken.filter((r) => ACTIVE.includes(r.status)).map((r) => r.person.email))
+        setPeople(p.filter(inPool(round)).filter((x) => !active.has(x.email)))
+      })
+      .catch((e) => toast(friendly(e), 'error'))
+  }, [])
+
+  const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const matches = useMemo(() => {
+    if (!people || q.trim().length < 2) return []
+    const n = norm(q.trim())
+    return people.filter((p) => norm(`${p.full_name} ${p.email} ${p.class_name ?? ''}`).includes(n)).slice(0, 8)
+  }, [people, q])
+
+  async function go() {
+    setBusy(true)
+    try {
+      const r = await rpc('staff_enroll', { p_course_id: course.id, p_person_id: pick.id, p_force: force })
+      toast(r.status === 'confirmed' ? `${pick.full_name}: vaga confirmada.` : `${pick.full_name}: lista de espera, posição ${r.position}.`, 'ok')
+      onDone()
+    } catch (e) { toast(friendly(e), 'error') }
+    setBusy(false)
+  }
+
+  return html`<div class="card staff-enroll">
+    <p class="small muted">Para exceções (quem não conseguiu entrar, ajuste da coordenação). Não confere horário de abertura, limite de escolhas nem choque de horário. O estudante recebe o e-mail normalmente.</p>
+    ${pick ? html`<div class="row between wrap">
+        <p><b>${pick.full_name}</b> <span class="muted small">${[pick.class_name, pick.email].filter(Boolean).join(' · ')}</span></p>
+        <button class="link small" onClick=${() => setPick(null)}>trocar</button>
+      </div>
+      ${full && html`<label class="check"><input type="checkbox" checked=${force} onChange=${(e) => setForce(e.target.checked)} />
+        <span>A disciplina está lotada. Garantir vaga mesmo assim (passa do limite de ${course.capacity}).</span></label>`}
+      <div class="row end"><${Btn} busy=${busy} onClick=${go}>${full && !force ? 'Colocar na lista de espera' : 'Confirmar vaga'}<//></div>`
+    : html`<input type="search" placeholder="Buscar estudante por nome, e-mail ou turma" value=${q}
+        onInput=${(e) => setQ(e.target.value)} aria-label="Buscar estudante" />
+      ${people === null ? html`<p class="muted small">Carregando…</p>` : html`<div class="pick-list">
+        ${matches.map((p) => html`<button key=${p.id} class="pick" onClick=${() => setPick(p)}>
+          <b>${p.full_name}</b><span class="muted small">${[p.class_name, p.email].filter(Boolean).join(' · ')}</span></button>`)}
+        ${q.trim().length >= 2 && matches.length === 0 && html`<p class="muted small">Ninguém encontrado (ou já inscrito nesta disciplina).</p>`}
+      </div>`}`}
+  </div>`
+}
+
+// ---------------------------------------------------------------- helpers
+
+// Excel-friendly: BOM + semicolons (Brazilian locale).
+function saveCsv(name, rows) {
+  const url = URL.createObjectURL(new Blob([csv(rows)], { type: 'text/csv;charset=utf-8' }))
+  const a = Object.assign(document.createElement('a'), { href: url, download: name })
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+// Test rounds only involve test people (@teste.invalid), real rounds only real ones.
+function inPool(round) {
+  return (p) => round.is_test === p.email.endsWith('@teste.invalid')
 }

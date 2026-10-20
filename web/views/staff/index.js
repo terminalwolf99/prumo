@@ -3,6 +3,7 @@ import { sb, watch } from '../../lib/db.js'
 import { Topbar } from '../../lib/ui.js'
 import { Student } from '../student.js'
 import { DropsTab } from './drops.js'
+import { HelpTab } from './help.js'
 import { PeopleTab } from './people.js'
 import { RoundsTab } from './rounds.js'
 import { SettingsTab } from './settings.js'
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'estudantes', label: 'Estudantes' },
   { id: 'equipe', label: 'Equipe', admin: true },
   { id: 'ajustes', label: 'Ajustes' },
+  { id: 'ajuda', label: 'Ajuda' },
 ]
 
 function useHashTab() {
@@ -56,11 +58,13 @@ export function Staff({ me }) {
       <button class="btn ghost sm view-as" onClick=${() => setAsGrade(2)}>Ver como estudante</button>
     <//>
     <main class="page wide">
+      ${me.email.endsWith('@teste.invalid') && html`<p class="test-banner">Conta de teste: tudo aqui mexe só nos dados de teste (rodadas e pessoas fictícias). Ajustes e o modelo do comprovante ficam bloqueados.</p>`}
       ${current === 'rodadas' && html`<${RoundsTab} me=${me} />`}
       ${current === 'desistencias' && html`<${DropsTab} />`}
       ${current === 'estudantes' && html`<${PeopleTab} me=${me} kind="students" />`}
       ${current === 'equipe' && html`<${PeopleTab} me=${me} kind="team" />`}
       ${current === 'ajustes' && html`<${SettingsTab} me=${me} go=${go} />`}
+      ${current === 'ajuda' && html`<${HelpTab} />`}
     </main>`
 }
 

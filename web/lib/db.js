@@ -30,6 +30,7 @@ const MESSAGES = {
   not_a_pdf: 'O arquivo precisa ser um PDF.',
   too_large: 'O PDF passa de 5 MB.',
   no_seat: 'Só há comprovante para vagas confirmadas.',
+  test_sandbox: 'Contas de teste só mexem nos dados de teste.',
 }
 
 export function friendly(error) {
@@ -47,6 +48,7 @@ export function friendly(error) {
   if (/people_email_key|duplicate key/i.test(raw)) return 'Já existe alguém com esse e-mail.'
   if (/enrollments_person_id_fkey/i.test(raw)) return 'Essa pessoa tem inscrições. Desative em vez de excluir.'
   if (/email.*check|people_email_check/i.test(raw)) return 'E-mail inválido.'
+  if (/row-level security/i.test(raw)) return 'Sem permissão para isso. (Contas de teste só mexem nos dados de teste.)'
   return raw || 'Algo deu errado.'
 }
 

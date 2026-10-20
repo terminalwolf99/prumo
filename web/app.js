@@ -5,6 +5,19 @@ import { Asker, Toasts, Wordmark } from './lib/ui.js'
 import { Login } from './views/login.js'
 import { Student } from './views/student.js'
 import { Staff } from './views/staff/index.js'
+import { Verify } from './views/verify.js'
+
+// #/verificar/<code> is public: it works with or without a login.
+function useVerifyRoute() {
+  const read = () => /^#\/verificar\/?([^/?]*)/.exec(location.hash)
+  const [m, setM] = useState(read)
+  useEffect(() => {
+    const on = () => setM(read())
+    addEventListener('hashchange', on)
+    return () => removeEventListener('hashchange', on)
+  }, [])
+  return m ? decodeURIComponent(m[1] ?? '') : null
+}
 
 function NotAllowed({ email }) {
   return html`<main class="center-page">
@@ -21,6 +34,7 @@ function NotAllowed({ email }) {
 function App() {
   const [session, setSession] = useState(undefined)
   const [me, setMe] = useState(undefined)
+  const verifyCode = useVerifyRoute()
 
   useEffect(() => {
     sb.auth.getSession().then(({ data }) => setSession(data.session))
@@ -38,7 +52,9 @@ function App() {
   }, [email])
 
   let page
-  if (session === undefined || (session && me === undefined)) {
+  if (verifyCode !== null) {
+    page = html`<${Verify} initial=${verifyCode} />`
+  } else if (session === undefined || (session && me === undefined)) {
     page = html`<div class="boot"><${Wordmark} /></div>`
   } else if (!session) {
     page = html`<${Login} />`

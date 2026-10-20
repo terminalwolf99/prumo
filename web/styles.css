@@ -638,6 +638,7 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--brand); 
 .mail.ok { color: var(--leaf); }
 .mail.wait { color: var(--sun); }
 .mail.bad { color: var(--danger); }
+.mail.off { color: var(--muted); }
 .roster { display: grid; gap: 10px; }
 .roster details summary { cursor: pointer; }
 
@@ -661,3 +662,60 @@ input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--brand); 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ------------------------------------------------------------ verification page */
+
+.verify-col { width: min(520px, 100%); display: grid; gap: 16px; justify-items: center; }
+.verify-brand { display: flex; align-items: center; gap: 16px; }
+.verify-brand .school-logo { height: 36px; width: auto; }
+.verify-card { width: 100%; padding: 24px; display: grid; gap: 14px; }
+.verify-input { font-size: 1.2rem !important; letter-spacing: 0.12em; text-transform: uppercase; }
+.verdict { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 14px; }
+.verdict p { margin: 2px 0 0; color: var(--muted); font-size: 0.92rem; }
+.verdict-mark { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 800 1.3rem var(--display); }
+.verdict.ok { background: var(--leaf-soft); }
+.verdict.ok .verdict-mark { background: var(--leaf); color: #fff; }
+.verdict.wait { background: var(--sun-soft); }
+.verdict.wait .verdict-mark { background: var(--sun-fill); color: #2b1d00; }
+.verdict.bad { background: var(--coral-soft); }
+.verdict.bad .verdict-mark { background: var(--danger); color: #fff; }
+
+/* ------------------------------------------------------------ staff tools */
+
+.chip.test { background: var(--coral-soft); color: var(--coral); }
+.missing { margin-top: 16px; padding: 16px 18px; display: grid; gap: 10px; }
+.missing p { margin: 0; }
+.missing-bar { height: 6px; border-radius: 99px; background: var(--paper-2); overflow: hidden; }
+.missing-bar i { display: block; height: 100%; background: var(--leaf); border-radius: 99px; }
+.missing-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 280px; overflow: auto; }
+.staff-enroll { padding: 14px 16px; display: grid; gap: 10px; background: var(--paper-2); }
+.staff-enroll p { margin: 0; }
+.pick-list { display: grid; gap: 6px; }
+.pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); cursor: pointer; }
+.pick:hover { border-color: var(--brand); }
+
+.mail-status { padding: 18px 20px; display: grid; gap: 8px; border-left: 5px solid var(--leaf); }
+.mail-status.off { border-left-color: var(--coral); }
+.mail-status p { margin: 0; }
+.mail-status code { font-family: var(--mono); font-size: 0.85em; background: var(--paper-2); padding: 1px 6px; border-radius: 6px; }
+.test-banner { background: var(--coral-soft); border: 1px solid var(--coral); color: var(--ink); padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; margin: 0 0 18px; }
+
+.hero-cal { background: rgba(255, 255, 255, 0.16); color: inherit; border-color: rgba(255, 255, 255, 0.35); }
+.hero-cal:hover { background: rgba(255, 255, 255, 0.26); }
+
+/* ------------------------------------------------------------ help */
+
+.help { max-width: 760px; display: grid; gap: 26px; }
+.help section { display: grid; gap: 8px; }
+.help p, .help li, .help dd { line-height: 1.6; }
+.lede-small { font-size: 1.05rem; color: var(--muted); max-width: 64ch; }
+.help-steps { padding-left: 1.3em; display: grid; gap: 10px; margin: 0; }
+.help ul { padding-left: 1.2em; display: grid; gap: 8px; margin: 0; }
+.help-faq { display: grid; gap: 4px; margin: 0; }
+.help-faq dt { font-weight: 650; margin-top: 10px; }
+.help-faq dd { margin: 0; color: var(--muted); }
+
+.login-links { margin-top: 18px; color: var(--muted); }
+.login-links .link { padding: 0; }
+.privacy p, .privacy li { line-height: 1.6; }
+.privacy ul { padding-left: 1.2em; margin: 0 0 12px; }

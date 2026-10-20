@@ -16,16 +16,19 @@ export function SettingsTab({ me }) {
   const [busy, setBusy] = useState('')
   const [template, setTemplate] = useState(null)
   const [mail, setMail] = useState([])
+  const [status, setStatus] = useState(null)
 
   const load = useCallback(async () => {
     try {
-      const [settings, info, outbox] = await Promise.all([
+      const [settings, info, outbox, st] = await Promise.all([
         must(sb.from('settings').select('*').single()),
         rpc('slip_template_info'),
         must(sb.from('email_outbox')
           .select('id, kind, created_at, sent_at, attempts, last_error, enrollment:enrollments(person:people!enrollments_person_id_fkey(full_name, email), course:courses(title))')
           .order('id', { ascending: false }).limit(40)),
+        rpc('mail_status'),
       ])
+      setStatus(st)
       setS(settings); setName(settings.school_name); setTemplate(info?.[0] ?? null); setMail(outbox)
     } catch (e) { toast(friendly(e), 'error') }
   }, [])
@@ -70,6 +73,7 @@ export function SettingsTab({ me }) {
 
   if (!s) return html`<div class="skeleton"></div>`
   return html`<div class="settings">
+    <${MailStatus} status=${status} />
     <section class="card">
       <h2 class="h3">Escola</h2>
       <form class="row end wrap" onSubmit=${(e) => { e.preventDefault(); saveSettings({ school_name: name.trim() }, 'Nome salvo.') }}>
@@ -110,7 +114,7 @@ export function SettingsTab({ me }) {
           <td class="small">${fmtWhen(m.created_at)}</td>
           <td class="small"><b>${m.enrollment?.person?.full_name}</b><div class="muted">${m.enrollment?.course?.title}</div></td>
           <td class="small">${KIND[m.kind] ?? m.kind}</td>
-          <td class="small">${m.sent_at ? html`<span class="mail ok">enviado</span>`
+          <td class="small">${m.sent_at && m.last_error?.startsWith('endereço de teste') ? html`<span class="mail off">não enviado (teste)</span>` : m.sent_at ? html`<span class="mail ok">enviado</span>`
             : m.attempts >= 6 ? html`<span class="mail bad" title=${m.last_error}>falhou</span>`
             : html`<span class="mail wait" title=${m.last_error ?? ''}>${m.last_error ? 'tentando de novo' : 'na fila'}</span>`}
             ${m.last_error && !m.sent_at && html`<div class="muted mono tiny">${m.last_error.slice(0, 120)}</div>`}</td>
@@ -147,4 +151,21 @@ function DomainList({ label, field, example, settings, admin, save }) {
       <button class="btn ghost" disabled=${!value.trim()}>Adicionar</button>
     </form>`}
   </div>`
+}
+
+// Whether e-mails can actually go out (the mailer reports this on every run).
+function MailStatus({ status }) {
+  if (!status) return null
+  const ready = status.configured === true
+  return html`<section class="card mail-status ${ready ? 'ok' : 'off'}">
+    <div class="row between wrap">
+      <h2 class="h3">Envio de e-mails: ${ready ? 'funcionando' : 'não configurado'}</h2>
+      <span class="chip ${ready ? 'ok' : 'pending'}">${status.pending} na fila · ${status.sent_24h} enviados em 24 h${status.failed ? ` · ${status.failed} falharam` : ''}</span>
+    </div>
+    ${ready
+      ? html`<p class="muted small">Códigos de acesso e comprovantes estão saindo normalmente.</p>`
+      : html`<p class="small">Sem um remetente, estudantes não recebem o código para entrar nem o comprovante.
+          A configuração leva uns 5 minutos: no computador do projeto, rode <code>scripts/configurar-email.ps1</code> (veja o README).
+          O que estiver na fila sai assim que o envio funcionar.</p>`}
+  </section>`
 }

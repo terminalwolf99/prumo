@@ -1,6 +1,6 @@
 import { html, useEffect, useRef, useState } from '../lib/deps.js'
 import { friendly, sb } from '../lib/db.js'
-import { Btn, Field, SchoolLogo, Wordmark } from '../lib/ui.js'
+import { Btn, Field, Modal, SchoolLogo, Wordmark } from '../lib/ui.js'
 
 const RESEND_AFTER = 60
 
@@ -27,6 +27,7 @@ export function Login() {
   const [demo, setDemo] = useState(null)
   const [testKey, setTestKey] = useState('')
   const [unlocking, setUnlocking] = useState(false)
+  const [privacy, setPrivacy] = useState(false)
   useEffect(() => {
     (async () => {
       const { TEST_MODE, DEMO_ACCOUNTS } = await import('../test-accounts.js')
@@ -95,6 +96,11 @@ export function Login() {
       <div class="login-platform">
         <${Wordmark} large />
         <p class="lede">Inscrições nos aprofundamentos do Ensino Médio.</p>
+        <p class="login-links">
+          <a class="link small" href="#/verificar">Verificar comprovante</a>
+          <span aria-hidden="true"> · </span>
+          <button type="button" class="link small" onClick=${() => setPrivacy(true)}>Privacidade</button>
+        </p>
       </div>
     </section>
 
@@ -143,5 +149,25 @@ export function Login() {
           <button type="button" class="link small" onClick=${() => setUnlocking(true)}>Tenho uma senha de teste</button>`}
       </div>`}
     </section>
+    <${Modal} open=${privacy} onClose=${() => setPrivacy(false)} title="Privacidade">
+      <${Privacy} />
+    <//>
   </main>`
+}
+
+// What Prumo keeps, who sees it and where it lives. Plain facts about this system.
+function Privacy() {
+  return html`<div class="privacy">
+    <p>O Prumo guarda só o que as inscrições precisam:</p>
+    <ul>
+      <li>nome, e-mail institucional, ano e turma, cadastrados pela escola;</li>
+      <li>as inscrições, com data e hora de cada uma;</li>
+      <li>os e-mails enviados (código de acesso e comprovantes).</li>
+    </ul>
+    <p><b>Quem vê:</b> a coordenação e os professores da Escola Autonomia. Cada estudante vê só os próprios dados.
+      Quem tem o código de um comprovante consegue conferir se ele é verdadeiro.</p>
+    <p><b>Onde fica:</b> no Supabase, em servidores em São Paulo. O site é servido pelo GitHub Pages e os e-mails saem pela conta de e-mail da escola.
+      Os dados não são vendidos nem usados para anúncios.</p>
+    <p><b>Dúvidas, correções ou exclusão:</b> fale com a coordenação da escola.</p>
+  </div>`
 }
