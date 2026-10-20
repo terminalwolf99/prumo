@@ -20,7 +20,12 @@ function sender(prefix: string): Sender | null {
   const port = Number(Deno.env.get(`${prefix}_PORT`) ?? 465)
   return {
     from: Deno.env.get(`${prefix}_FROM`) ?? user,
-    transport: nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } }),
+    // one pooled connection: sends go out one after another on the same login,
+    // which is what Gmail tolerates (it throttles many parallel logins)
+    transport: nodemailer.createTransport({
+      host, port, secure: port === 465, auth: { user, pass }, pool: true, maxConnections: 1,
+      connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 30_000,
+    }),
   }
 }
 
@@ -42,6 +47,34 @@ async function send(message: Record<string, unknown>) {
 }
 
 type Job = { id: number; kind: Kind; enrollment_id: string; attempts: number }
+
+// Only one drain at a time across all invocations (a burst of sign-ups wakes the
+// mailer once per commit); the others return at once and the running drain,
+// which loops until the queue is empty, picks their rows up.
+const DRAIN_LOCK = 764212
+
+// The lock lives in an open transaction (safe behind a connection pooler too);
+// the drain itself runs on other connections and ends the transaction when done.
+async function drainOnce(): Promise<boolean> {
+  let ran = false
+  await sql.begin(async (tx) => {
+    const [{ ok }] = await tx`select pg_try_advisory_xact_lock(${DRAIN_LOCK}) as ok`
+    if (!ok) return
+    await drain()
+    ran = true
+  })
+  return ran
+}
+
+// After letting go of the lock, look once more: a row may have landed right
+// as the last drain finished, while its own wake-up found the lock taken.
+async function drainAll() {
+  if (!(await drainOnce())) return
+  const [{ n }] = await sql<{ n: number }[]>`
+    select count(*)::int as n from public.email_outbox
+     where sent_at is null and attempts < 6 and (locked_until is null or locked_until < now())`
+  if (n > 0) await drainOnce()
+}
 
 async function drain() {
   const deadline = Date.now() + 100_000
@@ -116,6 +149,6 @@ Deno.serve(async (req) => {
 
   // Without a sender, leave the queue untouched so nothing burns its retries.
   if (!senders.length) return json({ skipped: 'smtp_not_configured' }, 503)
-  EdgeRuntime.waitUntil(drain().catch((e) => console.error('drain failed:', e)))
+  EdgeRuntime.waitUntil(drainAll().catch((e) => console.error('drain failed:', e)))
   return json({ ok: true }, 202)
 })
