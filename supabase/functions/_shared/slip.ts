@@ -5,7 +5,7 @@
 import { degrees, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'npm:pdf-lib@1.17.1'
 import qrcode from 'npm:qrcode-generator@2.0.4'
 import { brtDate, brtStamp, brtTimeMs } from './brt.ts'
-import type { SlipData } from './db.ts'
+import type { SlipData, SubmissionData } from './db.ts'
 import { LOGO_PNG_BASE64, LOGO_SIZE } from './logo.ts'
 
 type FieldKey = 'name' | 'class' | 'course' | 'round' | 'schedule' | 'code' | 'applied_at' | 'qr'
@@ -217,4 +217,91 @@ export function slipFilename(d: SlipData) {
   const slug = d.course_title.normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 40)
   return `comprovante-${slug || 'inscricao'}-${d.code}.pdf`
+}
+
+// Receipt for a ranking submission: the student's full order of preference per day.
+export async function renderRankingSlip(d: SubmissionData, appUrl: string): Promise<Uint8Array> {
+  const doc = await PDFDocument.create()
+  const page = doc.addPage([595.28, 841.89])
+  const W = page.getWidth()
+  const H = page.getHeight()
+  const M = 56
+  const regular = await doc.embedFont(StandardFonts.Helvetica)
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold)
+  const mono = await doc.embedFont(StandardFonts.CourierBold)
+  const logo = await doc.embedPng(Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0)))
+  const text = (t: string, x: number, y: number, size: number, font = regular, color = INK) =>
+    page.drawText(safe(font, t), { x, y, size, font, color })
+  const right = (t: string, xr: number, y: number, size: number, font = regular, color = INK) => {
+    const s = safe(font, t)
+    page.drawText(s, { x: xr - font.widthOfTextAtSize(s, size), y, size, font, color })
+  }
+
+  if (d.is_test) {
+    page.drawText('TESTE', { x: 120, y: 300, size: 150, font: bold, color: rgb(0.85, 0.2, 0.2), opacity: 0.07, rotate: degrees(35) })
+  }
+
+  const lw = 172
+  const lh = lw * LOGO_SIZE.height / LOGO_SIZE.width
+  page.drawImage(logo, { x: M, y: H - 52 - lh, width: lw, height: lh })
+  right('COMPROVANTE DE INSCRIÇÃO', W - M, H - 72, 9.5, bold, BRAND)
+  right(d.round_title, W - M, H - 90, fit(regular, safe(regular, d.round_title), 11, 250, 8), regular, MUTED)
+  page.drawLine({ start: { x: M, y: H - 124 }, end: { x: W - M, y: H - 124 }, thickness: 1.2, color: BRAND })
+
+  const pill = d.is_test ? 'INSCRIÇÃO DE TESTE' : 'INSCRIÇÃO REGISTRADA'
+  const pw = bold.widthOfTextAtSize(pill, 9) + 24
+  page.drawRectangle({ x: M, y: H - 172, width: pw, height: 22, color: d.is_test ? rgb(0.99, 0.9, 0.88) : OK_SOFT })
+  text(pill, M + 12, H - 164, 9, bold, d.is_test ? rgb(0.75, 0.2, 0.15) : OK)
+
+  text('ESTUDANTE', M, H - 210, 8.5, bold, MUTED)
+  const name = safe(bold, d.full_name)
+  page.drawText(name, { x: M, y: H - 244, size: fit(bold, name, 30, W - 2 * M, 14), font: bold, color: INK })
+  if (d.class_name) text(d.class_name, M, H - 266, 12, regular, MUTED)
+
+  // ordered preferences, one compact card per day
+  text('ORDEM DE PREFERÊNCIA', M, H - 300, 8.5, bold, MUTED)
+  let y = H - 316
+  for (const day of d.days) {
+    const cardH = 30 + day.options.length * 17
+    page.drawRectangle({ x: M, y: y - cardH, width: W - 2 * M, height: cardH, color: CARD })
+    page.drawRectangle({ x: M, y: y - cardH, width: 4, height: cardH, color: BRAND })
+    text(day.label, M + 22, y - 20, 11.5, bold, BRAND)
+    let oy = y - 40
+    for (const o of day.options) {
+      text(`${o.rank}.`, M + 22, oy, 10.5, bold, o.rank === 1 ? OK : MUTED)
+      page.drawText(safe(regular, o.title), { x: M + 44, y: oy, size: fit(regular, safe(regular, o.title), 10.5, W - 2 * M - 66, 8), font: regular, color: INK })
+      oy -= 17
+    }
+    y -= cardH + 12
+  }
+
+  // arrival time + code + QR, flowing just below the last day card
+  const cardsBottom = y + 12
+  const qrSize = 110
+  const qrX = W - M - qrSize
+  const baseY = Math.max(92, cardsBottom - 148)
+  text('INSCRIÇÃO REGISTRADA EM', M, baseY + 132, 8.5, bold, MUTED)
+  text(brtDate(d.created_at), M, baseY + 108, 18, bold, INK)
+  text(`às ${brtTimeMs(d.created_at)} · horário de Brasília`, M, baseY + 90, 10.5, regular, MUTED)
+  text('CÓDIGO', M, baseY + 50, 8.5, bold, MUTED)
+  text(formatCode(d.code), M, baseY + 24, 22, mono, INK)
+
+  drawQr(page, verifyUrl(appUrl, d.code), qrX, baseY + 12, qrSize)
+  const cx = qrX + qrSize / 2
+  const cap1 = 'Confira a autenticidade'
+  page.drawText(cap1, { x: cx - regular.widthOfTextAtSize(cap1, 8.5) / 2, y: baseY, size: 8.5, font: regular, color: MUTED })
+
+  page.drawLine({ start: { x: M, y: 74 }, end: { x: W - M, y: 74 }, thickness: 0.6, color: RULE })
+  text(`Prumo · ${d.school_name} · Florianópolis/SC`, M, 56, 9, regular, MUTED)
+  right(`Emitido em ${brtStamp(new Date()).replace(/,\d{3}$/, '')}`, W - M, 56, 9, regular, MUTED)
+
+  doc.setTitle(`Comprovante ${formatCode(d.code)} · ${d.round_title}`)
+  doc.setAuthor(d.school_name)
+  doc.setCreator('Prumo')
+  doc.setCreationDate(new Date())
+  return await doc.save()
+}
+
+export function rankingFilename(d: SubmissionData) {
+  return `comprovante-inscricao-${d.code}.pdf`
 }

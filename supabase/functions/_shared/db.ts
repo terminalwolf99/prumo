@@ -47,3 +47,43 @@ export async function loadTemplate(): Promise<Uint8Array | null> {
   const rows = await sql<{ pdf: Uint8Array }[]>`select pdf from private.slip_template limit 1`
   return rows[0]?.pdf ?? null
 }
+
+export type RankingDay = { label: string; options: { title: string; rank: number }[] }
+
+export type SubmissionData = {
+  submission_id: string
+  code: string
+  created_at: string
+  full_name: string
+  email: string
+  class_name: string | null
+  grade: number | null
+  round_title: string
+  is_test: boolean
+  school_name: string
+  days: RankingDay[]
+}
+
+export async function loadSubmission(id: string): Promise<SubmissionData | null> {
+  const rows = await sql<SubmissionData[]>`
+    select sub.id as submission_id, sub.code, sub.created_at,
+           p.full_name, p.email, p.class_name, p.grade,
+           r.title as round_title, r.is_test, st.school_name,
+           coalesce((
+             select jsonb_agg(day order by day.ord)
+               from (
+                 select ch.group_label as label, min(c.group_order) as ord,
+                        jsonb_agg(jsonb_build_object('title', c.title, 'rank', ch.rank) order by ch.rank) as options
+                   from public.ranking_choices ch
+                   join public.courses c on c.id = ch.course_id
+                  where ch.submission_id = sub.id
+                  group by ch.group_label
+               ) day
+           ), '[]'::jsonb) as days
+      from public.ranking_submissions sub
+      join public.people p on p.id = sub.person_id
+      join public.rounds r on r.id = sub.round_id
+      cross join public.settings st
+     where sub.id = ${id}`
+  return rows[0] ?? null
+}

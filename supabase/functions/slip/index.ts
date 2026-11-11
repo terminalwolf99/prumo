@@ -1,8 +1,8 @@
 // Download a confirmation slip from the app. Students get their own; staff
 // get anyone's, plus a preview with sample data for designing the template.
-import { loadEnrollment, loadTemplate, type SlipData, sql } from '../_shared/db.ts'
+import { loadEnrollment, loadSubmission, loadTemplate, type SlipData, type SubmissionData, sql } from '../_shared/db.ts'
 import { cors, json, verifiedEmail } from '../_shared/http.ts'
-import { renderSlip, slipFilename } from '../_shared/slip.ts'
+import { rankingFilename, renderRankingSlip, renderSlip, slipFilename } from '../_shared/slip.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -16,6 +16,35 @@ Deno.serve(async (req) => {
   const staff = me.role === 'teacher' || me.role === 'admin'
 
   const body = await req.json().catch(() => ({}))
+  const APP = Deno.env.get('APP_URL') ?? 'https://terminalwolf99.github.io/prumo/'
+
+  // ---- ranking receipts (a different document) ----
+  if (body.preview_ranking) {
+    if (!staff) return json({ error: 'forbidden' }, 403)
+    const [s] = await sql<{ school_name: string }[]>`select school_name from public.settings`
+    const sample: SubmissionData = {
+      submission_id: 'preview', code: 'AB12CD34', created_at: new Date().toISOString(),
+      full_name: 'Maria Eduarda Albuquerque dos Santos', email: '', class_name: '1º A', grade: 1,
+      round_title: 'Inscrições de exemplo', is_test: false, school_name: s.school_name,
+      days: [
+        { label: 'Terça-feira', options: [{ title: 'Geografia', rank: 1 }, { title: 'Literatura', rank: 2 }, { title: 'História', rank: 3 }] },
+        { label: 'Quarta-feira', options: [{ title: 'Artes', rank: 1 }, { title: 'Inglês', rank: 2 }, { title: 'Física', rank: 3 }] },
+        { label: 'Quinta-feira', options: [{ title: 'Biologia', rank: 1 }, { title: 'Matemática', rank: 2 }, { title: 'Química', rank: 3 }] },
+      ],
+    }
+    const pdf = await renderRankingSlip(sample, APP)
+    return new Response(pdf, { headers: { ...cors, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${rankingFilename(sample)}"`, 'Cache-Control': 'no-store' } })
+  }
+  if (typeof body.submission_id === 'string') {
+    if (!/^[0-9a-f-]{36}$/i.test(body.submission_id)) return json({ error: 'submission_id' }, 400)
+    const [own] = await sql<{ person_id: string }[]>`select person_id from public.ranking_submissions where id = ${body.submission_id}::uuid`
+    if (!own || (!staff && own.person_id !== me.id)) return json({ error: 'not_found' }, 404)
+    const d = await loadSubmission(body.submission_id)
+    if (!d) return json({ error: 'not_found' }, 404)
+    const pdf = await renderRankingSlip(d, APP)
+    return new Response(pdf, { headers: { ...cors, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${rankingFilename(d)}"`, 'Cache-Control': 'no-store' } })
+  }
+
   let data: SlipData | null
 
   if (body.preview) {

@@ -3,10 +3,10 @@
 // shared secret; never called by browsers.
 import nodemailer from 'npm:nodemailer@10.0.12'
 import { Buffer } from 'node:buffer'
-import { loadEnrollment, loadTemplate, sql } from '../_shared/db.ts'
-import { compose, type Kind, WITH_SLIP } from '../_shared/emails.ts'
+import { loadEnrollment, loadSubmission, loadTemplate, sql } from '../_shared/db.ts'
+import { compose, composeRanking, type Kind, WITH_SLIP } from '../_shared/emails.ts'
 import { json, sameSecret } from '../_shared/http.ts'
-import { renderSlip, slipFilename } from '../_shared/slip.ts'
+import { rankingFilename, renderRankingSlip, renderSlip, slipFilename } from '../_shared/slip.ts'
 
 type Sender = { from: string; transport: ReturnType<typeof nodemailer.createTransport> }
 
@@ -46,7 +46,7 @@ async function send(message: Record<string, unknown>) {
   throw lastError
 }
 
-type Job = { id: number; kind: Kind; enrollment_id: string; attempts: number }
+type Job = { id: number; kind: Kind | 'ranking'; enrollment_id: string | null; submission_id: string | null; attempts: number }
 
 // Only one drain at a time across all invocations (a burst of sign-ups wakes the
 // mailer once per commit); the others return at once and the running drain,
@@ -84,14 +84,29 @@ async function drain() {
     if (!jobs.length) return
     for (const job of jobs) {
       try {
-        const d = await loadEnrollment(job.enrollment_id)
+        if (job.submission_id) {
+          const d = await loadSubmission(job.submission_id)
+          if (!d) {
+            await sql`update public.email_outbox set sent_at = now(), last_error = 'submission gone' where id = ${job.id}`
+            continue
+          }
+          const { subject, html, text } = composeRanking(d, APP_URL)
+          const pdf = await renderRankingSlip(d, APP_URL)
+          await send({
+            to: { name: d.full_name, address: d.email }, subject, html, text,
+            attachments: [{ filename: rankingFilename(d), content: Buffer.from(pdf), contentType: 'application/pdf' }],
+          })
+          await sql`update public.email_outbox set sent_at = now(), last_error = null where id = ${job.id}`
+          continue
+        }
+        const d = await loadEnrollment(job.enrollment_id!)
         if (!d) {
           await sql`update public.email_outbox set sent_at = now(), last_error = 'enrollment gone' where id = ${job.id}`
           continue
         }
-        const { subject, html, text } = compose(job.kind, d, APP_URL)
+        const { subject, html, text } = compose(job.kind as Kind, d, APP_URL)
         const attachments = []
-        if (WITH_SLIP.includes(job.kind)) {
+        if (WITH_SLIP.includes(job.kind as Kind)) {
           if (template === undefined) template = await loadTemplate()
           const pdf = await renderSlip(d, template, APP_URL)
           attachments.push({ filename: slipFilename(d), content: Buffer.from(pdf), contentType: 'application/pdf' })
@@ -112,9 +127,12 @@ async function closeTestAddresses() {
   await sql`
     update public.email_outbox o
        set sent_at = now(), last_error = 'endereço de teste: não enviado'
-      from public.enrollments e
-      join public.people p on p.id = e.person_id
-     where o.enrollment_id = e.id and o.sent_at is null and p.email like '%.invalid'`
+     where o.sent_at is null and o.id in (
+       select o2.id from public.email_outbox o2
+         left join public.enrollments e on e.id = o2.enrollment_id
+         left join public.ranking_submissions s on s.id = o2.submission_id
+         join public.people p on p.id = coalesce(e.person_id, s.person_id)
+        where p.email like '%.invalid')`
 }
 
 async function recordState() {

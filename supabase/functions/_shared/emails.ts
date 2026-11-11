@@ -1,10 +1,46 @@
 import { brtStamp } from './brt.ts'
-import type { SlipData } from './db.ts'
+import type { SlipData, SubmissionData } from './db.ts'
 import { formatCode } from './slip.ts'
 
 export type Kind = 'confirmed' | 'waitlisted' | 'promoted' | 'drop_approved' | 'drop_rejected' | 'removed'
 
 export const WITH_SLIP: Kind[] = ['confirmed', 'promoted']
+
+const SHELL = (schoolName: string, first: string, body: string, appUrl: string) =>
+  `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f4efe6;font-family:Arial,Helvetica,sans-serif;color:#17212a">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden">
+<tr><td style="background:#003582;padding:22px 28px;color:#ffffff;font-size:12px;letter-spacing:.12em;font-weight:bold">PRUMO · ${esc(schoolName.toUpperCase())}</td></tr>
+<tr><td style="padding:28px 28px 8px;font-size:16px;line-height:1.55">
+<p style="margin:0 0 14px">Olá, ${esc(first)}!</p>
+${body}
+</td></tr>
+<tr><td style="padding:4px 28px 28px"><a href="${esc(appUrl)}" style="display:inline-block;background:#003582;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:bold;font-size:15px">Abrir o Prumo</a></td></tr>
+<tr><td style="padding:16px 28px;background:#faf7f1;color:#5f6f7a;font-size:12px">Mensagem automática do Prumo · ${esc(schoolName)} · Florianópolis/SC</td></tr>
+</table></td></tr></table></body></html>`
+
+// Receipt e-mail for a ranking submission: confirms the order and attaches the PDF.
+export function composeRanking(d: SubmissionData, appUrl: string) {
+  const first = d.full_name.split(' ')[0]
+  const when = brtStamp(d.created_at)
+  const days = d.days
+    .map((day) =>
+      `<p style="margin:0 0 6px"><b>${esc(day.label)}</b><br>${
+        day.options.map((o) => `${o.rank}. ${esc(o.title)}`).join('<br>')
+      }</p>`
+    )
+    .join('\n')
+  const body = [
+    `<p style="margin:0 0 14px">Sua inscrição em <b>${esc(d.round_title)}</b> foi registrada em ${when} (horário de Brasília). Código <b>${formatCode(d.code)}</b>.</p>`,
+    `<p style="margin:0 0 10px">Sua ordem de preferência:</p>`,
+    days,
+    `<p style="margin:14px 0 0">O comprovante em PDF está em anexo.</p>`,
+  ].join('\n')
+  const text = `Olá, ${first}!\n\nSua inscrição em ${d.round_title} foi registrada em ${when} (horário de Brasília). Código ${formatCode(d.code)}.\n\n` +
+    d.days.map((day) => `${day.label}:\n${day.options.map((o) => `  ${o.rank}. ${o.title}`).join('\n')}`).join('\n\n') +
+    `\n\nO comprovante em PDF está em anexo.\n${appUrl}\n`
+  return { subject: `Inscrição registrada: ${d.round_title}`, html: SHELL(d.school_name, first, body, appUrl), text }
+}
 
 function esc(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
