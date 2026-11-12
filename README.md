@@ -1,11 +1,23 @@
 # Prumo · Escola Autonomia
 
 Prumo is the web app Escola Autonomia (Florianópolis/SC) uses for Ensino Médio
-students to sign up for advanced subjects (aprofundamentos): limited spots,
-multi-disciplinary, first come first served, with an e-mailed PDF slip.
-All times are Horário de Brasília.
+students to sign up for advanced subjects (aprofundamentos), with an e-mailed
+PDF receipt. All times are Horário de Brasília.
 
 Live: https://terminalwolf99.github.io/prumo/
+
+A round is one of two **kinds** (chosen when it is created):
+
+- **Ordem de preferência (ranking).** The student ranks every subject within
+  each day (Ter/Qua/Qui) from most to least wanted; the school allocates
+  afterward from the arrival-ordered list of everyone's choices. Self-service:
+  any school-domain e-mail registers itself (name, year, turma) — no pre-loaded
+  list. This is the current use.
+- **Vagas por ordem de chegada (seats).** Limited seats per subject, first come
+  first served, with a waitlist and teacher-approved drops. Students are
+  pre-loaded by the school.
+
+Both produce the same QR-verified PDF receipt, timestamped to the millisecond.
 
 - **Students** sign in with their institutional e-mail and a 6-digit code,
   watch a countdown synced to the server clock, and claim a spot. Each
@@ -27,7 +39,7 @@ Live: https://terminalwolf99.github.io/prumo/
 | Web app | `web/` (static files, Preact + htm from a CDN, no build step) |
 | Hosting | GitHub Pages via `.github/workflows/pages.yml` |
 | Keep-alive | `.github/workflows/keepalive.yml` pings the database daily |
-| Tests | `supabase/tests/flows.sql` (23 end-to-end checks, rolled back) |
+| Tests | `supabase/tests/flows.sql` (seats) + `ranking.sql`, rolled back |
 
 **First come, first served.** `apply()` locks the student's row, then the
 subject's row, and only then reads the clock. Concurrent clicks on one subject

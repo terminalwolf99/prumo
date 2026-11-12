@@ -4,11 +4,27 @@ import { html } from '../../lib/deps.js'
 export function HelpTab() {
   return html`<article class="help">
     <h1 class="h2">Como usar o Prumo</h1>
-    <p class="lede-small">Cada disciplina tem um número de vagas. Quando a rodada abre, quem confirma primeiro fica com a vaga,
+    <p class="lede-small">Há dois tipos de rodada. Escolha o tipo ao criar a rodada.</p>
+
+    <section>
+      <h2 class="h3">Ordem de preferência</h2>
+      <p>O estudante coloca as disciplinas de cada dia (terça, quarta, quinta…) <b>em ordem de preferência</b> — da que mais quer para a que menos quer.
+        A coordenação organiza as turmas depois, a partir da lista de inscritos.</p>
+      <ol class="help-steps">
+        <li><b>Crie a rodada.</b> <i>Rodadas → Nova rodada → Ordem de preferência</i>: título, abertura e fechamento (horário de Brasília).</li>
+        <li><b>Monte as disciplinas por dia.</b> Use <i>Usar modelo 1º/2º</i> para começar com a folha da escola, ou <i>Nova opção</i> (disciplina, ano e dia). Uma disciplina que aparece nos dois anos é criada uma vez por ano.</li>
+        <li><b>Publique.</b> O estudante abre o link, confirma o e-mail institucional com um código, preenche nome e turma, e ordena as opções. Recebe o comprovante por e-mail.</li>
+        <li><b>Veja os inscritos.</b> <i>Ver inscritos</i> mostra a lista <b>por ordem de chegada</b>, com a 1ª, 2ª e 3ª opção de cada dia. <i>Exportar planilha</i> abre no Excel.</li>
+      </ol>
+      <p class="muted small">Não precisa cadastrar os estudantes antes: qualquer e-mail da escola se inscreve sozinho, uma vez por pessoa.</p>
+    </section>
+
+    <h2 class="h3">Vagas por ordem de chegada</h2>
+    <p class="lede-small">O outro tipo: cada disciplina tem um número de vagas. Quando a rodada abre, quem confirma primeiro fica com a vaga,
       na ordem exata em que o servidor recebeu, até o milissegundo. Quem chega depois de lotar entra na lista de espera, que anda sozinha quando uma vaga abre.</p>
 
     <section>
-      <h2 class="h3">1. Antes de abrir uma rodada</h2>
+      <h2 class="h3">1. Antes de abrir uma rodada de vagas</h2>
       <ol class="help-steps">
         <li><b>Cadastre os estudantes.</b> Em <i>Estudantes → Colar lista</i>, cole as colunas da planilha da secretaria (nome, e-mail, ano, turma).
           O nome sai no comprovante exatamente como estiver aqui. Só entra no Prumo quem estiver cadastrado.</li>
