@@ -20,8 +20,7 @@ async function fetchSlip(body) {
   return { blob: await res.blob(), name }
 }
 
-export async function downloadSlip(enrollmentId) {
-  const { blob, name } = await fetchSlip({ enrollment_id: enrollmentId })
+function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob)
   const a = Object.assign(document.createElement('a'), { href: url, download: name })
   document.body.append(a)
@@ -30,11 +29,21 @@ export async function downloadSlip(enrollmentId) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
 
+export async function downloadSlip(enrollmentId) {
+  const { blob, name } = await fetchSlip({ enrollment_id: enrollmentId })
+  saveBlob(blob, name)
+}
+
+export async function downloadRankingSlip(submissionId) {
+  const { blob, name } = await fetchSlip({ submission_id: submissionId })
+  saveBlob(blob, name)
+}
+
 // Opens the tab during the click so pop-up blockers allow it, then fills it.
-export async function previewSlip() {
+export async function previewSlip(body = { preview: true }) {
   const tab = window.open('', '_blank')
   try {
-    const { blob } = await fetchSlip({ preview: true })
+    const { blob } = await fetchSlip(body)
     const url = URL.createObjectURL(blob)
     if (tab) tab.location = url
     else window.location.href = url

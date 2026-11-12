@@ -5,6 +5,7 @@ import { fmtDate, fmtDay, fmtMs, fmtTime, fmtWhen, fromLocalInput, serverNow, to
 import {
   areaClass, AREAS, ask, Btn, Empty, Field, formatCode, gradesLabel, Modal, SeatMeter, StatusChip, toast, useNow,
 } from '../../lib/ui.js'
+import { RankingDetail } from './ranking-admin.js'
 
 export function roundState(r, now = serverNow()) {
   if (!r.published) return ['Rascunho', 'off']
@@ -49,7 +50,7 @@ export function RoundsTab() {
       ${rounds.map((r) => {
         const [label, kind] = roundState(r, now)
         return html`<button key=${r.id} class="round-item ${r.id === round?.id ? 'on' : ''}" onClick=${() => setSelected(r.id)}>
-          <span class="row small-gap"><span class="chip ${kind}">${label}</span>${r.is_test && html`<span class="chip test">teste</span>`}</span>
+          <span class="row small-gap"><span class="chip ${kind}">${label}</span>${r.kind === 'ranking' && html`<span class="chip brandy">preferência</span>`}${r.is_test && html`<span class="chip test">teste</span>`}</span>
           <b>${r.title}</b>
           <span class="muted small">${fmtDay(r.opens_at)} ${fmtTime(r.opens_at)} → ${fmtDay(r.closes_at)} ${fmtTime(r.closes_at)}</span>
         </button>`
@@ -57,7 +58,10 @@ export function RoundsTab() {
     </aside>
 
     <section class="round-detail">
-      ${round ? html`<${RoundHeader} round=${round} courses=${list} now=${now} onEdit=${() => setEditRound(round)} reload=${load}
+      ${round ? (round.kind === 'ranking'
+        ? html`<${RankingDetail} round=${round} courses=${list} now=${now} reload=${load}
+            onEditRound=${() => setEditRound(round)} onDuplicated=${(id) => { setSelected(id); load() }} />`
+        : html`<${RoundHeader} round=${round} courses=${list} now=${now} onEdit=${() => setEditRound(round)} reload=${load}
           onDuplicated=${(id) => { setSelected(id); load() }} />
         <div class="section-head">
           <h2 class="h3">Disciplinas <span class="muted">(${list.length})</span></h2>
@@ -81,7 +85,7 @@ export function RoundsTab() {
               </tr>`)}</tbody>
             </table></div>`}
         ${list.length > 0 && html`<${Missing} key=${round.id} round=${round} />`}
-      ` : html`<${Empty} title="Nenhuma rodada ainda." />`}
+      `) : html`<${Empty} title="Nenhuma rodada ainda." />`}
     </section>
 
     <${Modal} open=${!!editRound} onClose=${() => setEditRound(null)} title=${editRound?.id ? 'Editar rodada' : 'Nova rodada'}>
@@ -197,12 +201,14 @@ function RoundForm({ round, onDone }) {
   const [f, setF] = useState(() => ({
     title: round.title ?? '',
     description: round.description ?? '',
+    kind: round.kind ?? 'ranking',
     opens: toLocalInput(round.opens_at),
     closes: toLocalInput(round.closes_at),
     max_choices: round.max_choices ?? 1,
     block_same_slot: round.block_same_slot ?? true,
     published: round.published ?? false,
   }))
+  const isNew = !round.id
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = (k) => (e) => {
@@ -219,6 +225,7 @@ function RoundForm({ round, onDone }) {
     const row = {
       title: f.title.trim(), description: f.description.trim() || null, opens_at, closes_at,
       max_choices: Math.max(1, Number(f.max_choices) || 1), block_same_slot: f.block_same_slot, published: f.published,
+      ...(isNew ? { kind: f.kind } : {}),
     }
     setBusy(true); setError('')
     try {
@@ -233,17 +240,27 @@ function RoundForm({ round, onDone }) {
 
   const opensPast = f.opens && new Date(fromLocalInput(f.opens)).getTime() <= serverNow()
   return html`<form class="form" onSubmit=${save}>
+    ${isNew && html`<${Field} label="Tipo de inscrição">
+      <div class="kind-pick">
+        <button type="button" class="kind-opt ${f.kind === 'ranking' ? 'on' : ''}" onClick=${() => setF((p) => ({ ...p, kind: 'ranking' }))}>
+          <b>Ordem de preferência</b><span>O estudante coloca as disciplinas de cada dia em ordem; a coordenação organiza as turmas depois.</span>
+        </button>
+        <button type="button" class="kind-opt ${f.kind === 'seats' ? 'on' : ''}" onClick=${() => setF((p) => ({ ...p, kind: 'seats' }))}>
+          <b>Vagas por ordem de chegada</b><span>Vagas limitadas por disciplina; quem confirma primeiro garante, com lista de espera.</span>
+        </button>
+      </div>
+    <//>`}
     <${Field} label="Título"><input value=${f.title} onInput=${set('title')} placeholder="Aprofundamentos · 1º semestre 2027" required /><//>
     <${Field} label="Descrição (opcional)"><textarea rows="2" value=${f.description} onInput=${set('description')}></textarea><//>
     <div class="grid2">
       <${Field} label="Abre em" hint="Horário de Brasília"><input type="datetime-local" value=${f.opens} onInput=${set('opens')} required /><//>
       <${Field} label="Fecha em" hint="Horário de Brasília"><input type="datetime-local" value=${f.closes} onInput=${set('closes')} required /><//>
     </div>
-    <${Field} label="Escolhas por estudante" hint="Inclui vagas confirmadas e lugares na lista de espera.">
+    ${f.kind === 'seats' && html`<${Field} label="Escolhas por estudante" hint="Inclui vagas confirmadas e lugares na lista de espera.">
       <input type="number" min="1" max="20" value=${f.max_choices} onInput=${set('max_choices')} />
     <//>
     <label class="check"><input type="checkbox" checked=${f.block_same_slot} onChange=${set('block_same_slot')} />
-      <span>Impedir duas disciplinas com o mesmo código de horário</span></label>
+      <span>Impedir duas disciplinas com o mesmo código de horário</span></label>`}
     <label class="check"><input type="checkbox" checked=${f.published} onChange=${set('published')} />
       <span>Publicada (estudantes veem a rodada e a contagem regressiva)</span></label>
     ${f.published && opensPast && html`<p class="warn">A abertura já passou: publicada assim, as inscrições ficam abertas imediatamente.</p>`}

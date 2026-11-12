@@ -32,7 +32,7 @@ export function Student({ me, bar }) {
   const load = useCallback(async () => {
     try {
       const [r, c, m] = await Promise.all([
-        must(sb.from('rounds').select('*').eq('published', true).order('opens_at')),
+        must(sb.from('rounds').select('*').eq('published', true).neq('kind', 'ranking').order('opens_at')),
         must(sb.from('courses').select('*').order('sort_order').order('title')),
         rpc('my_enrollments'),
       ])

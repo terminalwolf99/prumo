@@ -1,11 +1,11 @@
-import { html, render, useEffect, useState } from './lib/deps.js'
+import { html, render, useCallback, useEffect, useState } from './lib/deps.js'
 import { rpc, sb } from './lib/db.js'
 import { syncClock } from './lib/time.js'
 import { Asker, Toasts, Wordmark } from './lib/ui.js'
 import { Login } from './views/login.js'
-import { Student } from './views/student.js'
 import { Staff } from './views/staff/index.js'
 import { Verify } from './views/verify.js'
+import { SelfRegister, StudentHome } from './views/ranking.js'
 
 // #/verificar/<code> is public: it works with or without a login.
 function useVerifyRoute() {
@@ -17,18 +17,6 @@ function useVerifyRoute() {
     return () => removeEventListener('hashchange', on)
   }, [])
   return m ? decodeURIComponent(m[1] ?? '') : null
-}
-
-function NotAllowed({ email }) {
-  return html`<main class="center-page">
-    <div class="card narrow">
-      <${Wordmark} />
-      <h1 class="h2">Acesso não liberado</h1>
-      <p><b>${email}</b> não está cadastrado no Prumo, ou o acesso foi desativado.</p>
-      <p class="muted">Se isso for um engano, fale com a coordenação.</p>
-      <button class="btn primary" onClick=${() => sb.auth.signOut()}>Entrar com outro e-mail</button>
-    </div>
-  </main>`
 }
 
 function App() {
@@ -43,13 +31,17 @@ function App() {
   }, [])
 
   const email = session?.user?.email?.toLowerCase()
+  const loadMe = useCallback(async () => {
+    if (!email) { setMe(undefined); return }
+    const { data } = await sb.from('people').select('*').eq('email', email).maybeSingle()
+    setMe(data?.active ? data : null)
+  }, [email])
   useEffect(() => {
     if (!email) { setMe(undefined); return }
     setMe(undefined)
     syncClock(() => rpc('server_time')).catch(() => {})
-    sb.from('people').select('*').eq('email', email).maybeSingle()
-      .then(({ data }) => setMe(data?.active ? data : null))
-  }, [email])
+    loadMe()
+  }, [email, loadMe])
 
   let page
   if (verifyCode !== null) {
@@ -59,9 +51,9 @@ function App() {
   } else if (!session) {
     page = html`<${Login} />`
   } else if (!me) {
-    page = html`<${NotAllowed} email=${email} />`
+    page = html`<${SelfRegister} email=${email} reloadMe=${loadMe} />`
   } else if (me.role === 'student') {
-    page = html`<${Student} me=${me} />`
+    page = html`<${StudentHome} me=${me} reloadMe=${loadMe} />`
   } else {
     page = html`<${Staff} me=${me} />`
   }
